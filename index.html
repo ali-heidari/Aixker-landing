@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aixkern | The AI-Native Distributed Kernel</title>
+    <meta name="description" content="Rust-native, AI-native distributed kernel enabling ultra-low-latency coordination of autonomous agent fleets.">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            /* Dark Mode (Default) */
+            --bg-body: #050505;
+            --bg-card: #0a0a0a;
+            --bg-card-hover: #121212;
+            --text-main: #ededed;
+            --text-muted: #888888;
+            --accent: #00f0ff;
+            --accent-glow: rgba(0, 240, 255, 0.15);
+            --border: rgba(255, 255, 255, 0.1);
+            --border-hover: rgba(0, 240, 255, 0.5);
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --max-width: 1200px;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html.light {
+            /* Light Mode Overrides */
+            --bg-body: #ffffff;
+            --bg-card: #f7f7f7;
+            --bg-card-hover: #f0f0f0;
+            --text-main: #111111;
+            --text-muted: #666666;
+            --accent: #00808a; /* Darker cyan for light mode readability */
+            --accent-glow: rgba(0, 128, 138, 0.1);
+            --border: rgba(0, 0, 0, 0.1);
+            --border-hover: rgba(0, 128, 138, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        a { text-decoration: none; color: inherit; transition: var(--transition); }
+        ul { list-style: none; }
+
+        /* --- UTILITIES --- */
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .mono { font-family: var(--font-mono); font-size: 0.9em; }
+        .accent { color: var(--accent); }
+        
+        /* Scroll Animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- HEADER --- */
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 0;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s;
+        }
+        
+        header.scrolled {
+            border-bottom: 1px solid var(--border);
+            background: rgba(var(--bg-body), 0.8);
+        }
+
+        .nav-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo svg {
+            height: 32px;
+            width: 32px;
+        }
+
+        .toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--text-muted);
+        }
+
+        /* --- HERO SECTION --- */
+        #hero {
+            padding: 180px 0 100px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Ambient Glow Behind Hero */
+        #hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 800px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.04em;
+            margin-bottom: 24px;
+            background: linear-gradient(180deg, var(--text-main) 0%, var(--text-muted) 120%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subhead {
+            font-size: clamp(1.1rem, 2vw, 1.35rem);
+            color: var(--text-muted);
+            max-width: 680px;
+            margin: 0 auto 48px;
+            font-weight: 400;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--text-main);
+            color: var(--bg-body);
+            border: 1px solid var(--text-main);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-main);
+        }
+
+        /* --- METRICS GRID --- */
+        #metrics {
+            padding: 60px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+        }
+
+        .metric-val {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-family: var(--font-mono);
+            letter-spacing: -0.05em;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        /* --- FEATURES GRID --- */
+        #features {
+            padding: 120px 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+            margin-top: 60px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 32px;
+            border-radius: 16px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .feature-icon {
+            margin-bottom: 24px;
+            color: var(--accent);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* --- ARCHITECTURE --- */
+        #architecture {
+            padding: 100px 0;
+            background: linear-gradient(to bottom, var(--bg-body), var(--bg-card) 50%, var(--bg-body));
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .arch-diagram {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 40px;
+            border: 1px dashed var(--border);
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .arch-node {
+            background: var(--bg-body);
+            border: 1px solid var(--accent);
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        .arch-arrow {
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        .arch-desc {
+            max-width: 700px;
+            margin: 40px auto 0;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        /* Mobile adjustment for flow diagram */
+        @media (max-width: 768px) {
+            .arch-diagram {
+                flex-direction: column;
+            }
+            .arch-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* --- MOAT --- */
+        #moat {
+            padding: 100px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .moat-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 24px;
+        }
+
+        .moat-content p {
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            font-size: 1.05rem;
+        }
+
+        .moat-stats {
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: 16px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .moat-stats li {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .moat-stats li::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+        }
+
+        @media (max-width: 900px) {
+            #moat { grid-template-columns: 1fr; }
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            margin-left: 24px;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        /* --- SVGs --- */
+        .icon {
+            width: 32px;
+            height: 32px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header">
+        <div class="container nav-wrapper">
+            <div class="logo">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-width="6" stroke-opacity="0.2"/>
+                    <circle cx="50" cy="50" r="40" stroke="var(--accent)" stroke-width="6" stroke-dasharray="60 190" stroke-linecap="round"/>
+                    <path d="M35 75L50 30L65 75" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M40 62H60" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+                    <path d="M65 75L75 75" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+                </svg>
+                <span>Aixkern</span>
+            </div>
+            
+            <button class="toggle-btn" id="theme-toggle" aria-label="Toggle Dark Mode">
+                <span id="theme-text">Light Mode</span>
+                <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <section id="hero">
+        <div class="container">
+            <h1 class="reveal">The <span class="accent">AI-Native Kernel</span> for<br>Distributed Intelligence.</h1>
+            <p class="subhead reveal">
+                Rust-powered distributed runtime enabling autonomous agent fleets. 
+                <span class="mono accent">&lt;30 MB/node</span>. Microsecond-level coordination driven by Reinforcement Learning.
+            </p>
+            <div class="cta-group reveal">
+                <a href="mailto:founder@aixkern.com" class="btn btn-primary">Schedule Technical Demo</a>
+                <a href="#architecture" class="btn btn-secondary">Dive into Architecture</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="metrics" class="reveal">
+        <div class="container metrics-grid">
+            <div class="metric-card">
+                <span class="metric-val">&lt;30<small style="font-size:0.5em">MB</small></span>
+                <span class="metric-label">Memory Footprint</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-val">7.6<small style="font-size:0.5em">ms</small></span>
+                <span class="metric-label">Avg Latency</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-val">54<small style="font-size:0.5em">ms</small></span>
+                <span class="metric-label">P99 Latency</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-val">404</span>
+                <span class="metric-label">RPS Sustained</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>Why Aixkern?</h2>
+                <p class="subhead" style="margin: 0 auto;">Engineered for the bleeding edge of robotics and autonomous systems.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <h3>eBPF Dataplane</h3>
+                    <p>Kernel-level packet redirection and zero-copy data routing for maximal efficiency bypassing the standard network stack.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+                    </div>
+                    <h3>RL Router</h3>
+                    <p>Self-optimizing networking that dynamically reroutes agents based on system load and predicted state using reinforcement learning.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <h3>Ultra-Low Latency</h3>
+                    <p>QUIC + Multicast networking for guaranteed sub-10ms P50 communication across decentralized clusters.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    </div>
+                    <h3>Edge-First Design</h3>
+                    <p>Minimal footprint and native Rust compile targets for seamless deployment on robotics and IoT edge devices.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <h3>Self-Healing</h3>
+                    <p>AI-driven state management enables resilience and automatic failover without human intervention.</p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <h3>Rust-Native Safety</h3>
+                    <p>Guaranteed memory and thread safety ensures protocol stability in mission-critical environments.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="architecture" class="reveal">
+        <div class="container">
+            <div class="section-header">
+                <h2>Architecture</h2>
+                <p class="subhead">Orchestration at the Kernel Layer</p>
+            </div>
+            
+            <div class="arch-diagram">
+                <div class="arch-node">RUST RUNTIME</div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">QUIC TRANSPORT</div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node accent" style="background: rgba(0,240,255,0.05)">eBPF HOOK</div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">RL ROUTER</div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">AGENT FLEET</div>
+            </div>
+
+            <p class="arch-desc">
+                By injecting eBPF programs directly into the OS kernel, Aixkern captures traffic before it hits the TCP/IP stack. 
+                Our reinforcement learning agent then routes data via QUIC streams to the optimal fleet node.
+            </p>
+        </div>
+    </section>
+
+    <section id="moat" class="container reveal">
+        <div class="moat-content">
+            <h2>Beyond Protocol:<br>Establishing a Moat.</h2>
+            <p>
+                Standard orchestration tools operate in user space with heavy overhead. 
+                Aixkern's patented fusion of <strong>eBPF kernel access</strong> and <strong>autonomous AI decision-making</strong> creates a non-replicable performance ceiling.
+            </p>
+            <p>
+                We aren't just building a faster network; we are building the nervous system for the next generation of autonomy.
+            </p>
+        </div>
+        <ul class="moat-stats">
+            <li>Target: Defense & Autonomous Swarms</li>
+            <li>Target: >100k Unit Robotics Fleets</li>
+            <li>Target: High-Frequency Trading</li>
+            <li style="margin-top:20px; color: var(--text-main); font-weight:700;">Team: Ex-Kernel Devs & DeepMind Alumni</li>
+        </ul>
+    </section>
+
+    <footer>
+        <div class="container footer-content">
+            <div>
+                © 2025 Aixkern.
+            </div>
+            <div class="footer-links">
+                <a href="mailto:ali-heidari@outlook.com">Contact</a>
+                <a href="https://github.com/ali-heidari/AION-Agent">GitHub</a>
+                <a href="mailto:ali-heidari@outlook.com">Careers</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Theme Toggle Logic
+        const toggleBtn = document.getElementById('theme-toggle');
+        const themeText = document.getElementById('theme-text');
+        const html = document.documentElement;
+        
+        // Check local storage or system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'light' || (!savedTheme && !systemDark)) {
+            html.classList.remove('dark');
+            html.classList.add('light');
+            themeText.textContent = 'Dark Mode';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                localStorage.setItem('theme', 'light');
+                themeText.textContent = 'Dark Mode';
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                themeText.textContent = 'Light Mode';
+            }
+        });
+
+        // Header Scroll Effect
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // Scroll Reveal Animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    observer.unobserve(entry.target); // Only animate once
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
