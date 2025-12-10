@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aixkern | The AI-Native Distributed Kernel</title>
-    <meta name="description" content="Rust-native, AI-native distributed kernel enabling ultra-low-latency coordination of autonomous agent fleets.">
-    
+    <meta name="description"
+        content="Rust-native, AI-native distributed kernel enabling ultra-low-latency coordination of autonomous agent fleets.">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
 
     <style>
         /* --- CSS VARIABLES & RESET --- */
@@ -19,7 +23,8 @@
             --bg-card-hover: #121212;
             --text-main: #ededed;
             --text-muted: #888888;
-            --accent: #00f0ff;
+            --accent: #3b82f6;
+            ;
             --accent-glow: rgba(0, 240, 255, 0.15);
             --border: rgba(255, 255, 255, 0.1);
             --border-hover: rgba(0, 240, 255, 0.5);
@@ -36,14 +41,19 @@
             --bg-card-hover: #f0f0f0;
             --text-main: #111111;
             --text-muted: #666666;
-            --accent: #00808a; /* Darker cyan for light mode readability */
+            --accent: #00808a;
+            /* Darker cyan for light mode readability */
             --accent-glow: rgba(0, 128, 138, 0.1);
             --border: rgba(0, 0, 0, 0.1);
             --border-hover: rgba(0, 128, 138, 0.5);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             background-color: var(--bg-body);
             color: var(--text-main);
@@ -54,8 +64,15 @@
             transition: background-color 0.5s ease, color 0.5s ease;
         }
 
-        a { text-decoration: none; color: inherit; transition: var(--transition); }
-        ul { list-style: none; }
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: var(--transition);
+        }
+
+        ul {
+            list-style: none;
+        }
 
         /* --- UTILITIES --- */
         .container {
@@ -64,15 +81,22 @@
             padding: 0 20px;
         }
 
-        .mono { font-family: var(--font-mono); font-size: 0.9em; }
-        .accent { color: var(--accent); }
-        
+        .mono {
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+
+        .accent {
+            color: var(--accent);
+        }
+
         /* Scroll Animations */
         .reveal {
             opacity: 0;
             transform: translateY(30px);
             transition: opacity 0.8s ease-out, transform 0.8s ease-out;
         }
+
         .reveal.active {
             opacity: 1;
             transform: translateY(0);
@@ -90,7 +114,7 @@
             border-bottom: 1px solid transparent;
             transition: border-color 0.3s;
         }
-        
+
         header.scrolled {
             border-bottom: 1px solid var(--border);
             background: rgba(var(--bg-body), 0.8);
@@ -357,6 +381,7 @@
             .arch-diagram {
                 flex-direction: column;
             }
+
             .arch-arrow {
                 transform: rotate(90deg);
             }
@@ -407,7 +432,9 @@
         }
 
         @media (max-width: 900px) {
-            #moat { grid-template-columns: 1fr; }
+            #moat {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* --- FOOTER --- */
@@ -431,7 +458,7 @@
             color: var(--text-main);
             font-weight: 500;
         }
-        
+
         .footer-links a:hover {
             color: var(--accent);
         }
@@ -448,24 +475,62 @@
         }
     </style>
 </head>
+
 <body>
 
     <header id="header">
         <div class="container nav-wrapper">
             <div class="logo">
-                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-width="6" stroke-opacity="0.2"/>
-                    <circle cx="50" cy="50" r="40" stroke="var(--accent)" stroke-width="6" stroke-dasharray="60 190" stroke-linecap="round"/>
-                    <path d="M35 75L50 30L65 75" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M40 62H60" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-                    <path d="M65 75L75 75" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" version="1.1"
+                    xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:bx="https://boxy-svg.com">
+                    <defs>
+                        <linearGradient id="color-0" bx:pinned="true" gradientUnits="userSpaceOnUse"
+                            gradientTransform="matrix(1, 0, 0, 1, 0.900658, 0)">
+                            <stop style="stop-color: rgb(0, 240, 255);"></stop>
+                        </linearGradient>
+                        <linearGradient id="color-1" bx:pinned="true" gradientUnits="userSpaceOnUse">
+                            <stop style="stop-color: #d8d8d8;"></stop>
+                        </linearGradient>
+                        <linearGradient id="gradient-1" bx:pinned="true">
+                            <stop offset="0.283" style="stop-color: rgb(0, 255, 239);"></stop>
+                        </linearGradient>
+                        <linearGradient id="gradient-3" bx:pinned="true">
+                            <stop offset="0.533" style="stop-color: rgb(214, 214, 214);"></stop>
+                        </linearGradient>
+                        <linearGradient id="gradient-2" bx:pinned="true"></linearGradient>
+                        <linearGradient id="gradient-0" bx:pinned="true">
+                            <stop offset="0.5" style="stop-color: rgb(59, 130, 246);"></stop>
+                        </linearGradient>
+                        <linearGradient id="gradient-0-0" href="#gradient-0" gradientUnits="userSpaceOnUse" x1="50"
+                            y1="8" x2="50" y2="92" gradientTransform="matrix(0.8574, 0, 0, 0.8574, 7.130066, 7.130006)">
+                        </linearGradient>
+                        <linearGradient id="color-2" bx:pinned="true" gradientUnits="userSpaceOnUse">
+                            <stop style="stop-color: rgb(59, 130, 246);"></stop>
+                        </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="50" r="40" stroke="var(--accent)" stroke-width="6" stroke-dasharray="60 190"
+                        stroke-linecap="round"></circle>
+                    <path d="M 21.506 50 L 78.494 50" stroke="currentColor" stroke-width="6" stroke-linecap="round"
+                        style="transform-origin: 50px 50px 0px;" transform="matrix(0, -1, 1, 0, 0, 0)"></path>
+                    <path d="M 31.808 67.525 L 51.474 32.328 L 68.191 67.672" stroke="currentColor" stroke-width="6"
+                        stroke-linecap="round" stroke-linejoin="round" style="transform-origin: 50px 50px 0px;"
+                        transform="matrix(0, -1, 1, 0, 0, 0)"></path>
+                    <circle cx="50" cy="50" r="24.513" stroke-width="6"
+                        style="stroke: rgb(59, 130, 246); stroke-dasharray: 229px; transform-origin: 50px 50px 0px;"
+                        transform="matrix(0.897705, 0.762584, -0.739591, 0.870639, 0.000004, 0)"></circle>
+                    <ellipse
+                        style="fill: currentcolor; stroke-linejoin: round; stroke-linecap: round; transform-origin: 34.288px 40.752px 0px;"
+                        cx="34.288" cy="40.752" rx="5.912" ry="5.912"
+                        transform="matrix(0, -1, 1, 0, 4.908671, 22.259005)"></ellipse>
                 </svg>
-                <span>Aixkern</span>
+
+                <span>AixKern</span>
             </div>
-            
+
             <button class="toggle-btn" id="theme-toggle" aria-label="Toggle Dark Mode">
                 <span id="theme-text">Light Mode</span>
-                <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="5"></circle>
                     <line x1="12" y1="1" x2="12" y2="3"></line>
                     <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -484,8 +549,9 @@
         <div class="container">
             <h1 class="reveal">The <span class="accent">AI-Native Kernel</span> for<br>Distributed Intelligence.</h1>
             <p class="subhead reveal">
-                Rust-powered distributed runtime enabling autonomous agent fleets. 
-                <span class="mono accent">&lt;30 MB/node</span>. Microsecond-level coordination driven by Reinforcement Learning.
+                Rust-powered distributed runtime enabling autonomous agent fleets.
+                <span class="mono accent">&lt;30 MB/node</span>. Microsecond-level coordination driven by Reinforcement
+                Learning.
             </p>
             <div class="cta-group reveal">
                 <a href="mailto:founder@aixkern.com" class="btn btn-primary">Schedule Technical Demo</a>
@@ -519,50 +585,79 @@
         <div class="container">
             <div class="section-header reveal">
                 <h2>Why Aixkern?</h2>
-                <p class="subhead" style="margin: 0 auto;">Engineered for the bleeding edge of robotics and autonomous systems.</p>
+                <p class="subhead" style="margin: 0 auto;">Engineered for the bleeding edge of robotics and autonomous
+                    systems.</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
                     </div>
                     <h3>eBPF Dataplane</h3>
-                    <p>Kernel-level packet redirection and zero-copy data routing for maximal efficiency bypassing the standard network stack.</p>
+                    <p>Kernel-level packet redirection and zero-copy data routing for maximal efficiency bypassing the
+                        standard network stack.</p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+                            <path d="M12 6v6l4 2" />
+                        </svg>
                     </div>
                     <h3>RL Router</h3>
-                    <p>Self-optimizing networking that dynamically reroutes agents based on system load and predicted state using reinforcement learning.</p>
+                    <p>Self-optimizing networking that dynamically reroutes agents based on system load and predicted
+                        state using reinforcement learning.</p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
                     </div>
                     <h3>Ultra-Low Latency</h3>
-                    <p>QUIC + Multicast networking for guaranteed sub-10ms P50 communication across decentralized clusters.</p>
+                    <p>QUIC + Multicast networking for guaranteed sub-10ms P50 communication across decentralized
+                        clusters.</p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                            <rect x="9" y="9" width="6" height="6" />
+                            <line x1="9" y1="1" x2="9" y2="4" />
+                            <line x1="15" y1="1" x2="15" y2="4" />
+                            <line x1="9" y1="20" x2="9" y2="23" />
+                            <line x1="15" y1="20" x2="15" y2="23" />
+                            <line x1="20" y1="9" x2="23" y2="9" />
+                            <line x1="20" y1="14" x2="23" y2="14" />
+                            <line x1="1" y1="9" x2="4" y2="9" />
+                            <line x1="1" y1="14" x2="4" y2="14" />
+                        </svg>
                     </div>
                     <h3>Edge-First Design</h3>
-                    <p>Minimal footprint and native Rust compile targets for seamless deployment on robotics and IoT edge devices.</p>
+                    <p>Minimal footprint and native Rust compile targets for seamless deployment on robotics and IoT
+                        edge devices.</p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
                     </div>
                     <h3>Self-Healing</h3>
-                    <p>AI-driven state management enables resilience and automatic failover without human intervention.</p>
+                    <p>AI-driven state management enables resilience and automatic failover without human intervention.
+                    </p>
                 </div>
                 <div class="feature-card reveal">
                     <div class="feature-icon">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                        </svg>
                     </div>
                     <h3>Rust-Native Safety</h3>
-                    <p>Guaranteed memory and thread safety ensures protocol stability in mission-critical environments.</p>
+                    <p>Guaranteed memory and thread safety ensures protocol stability in mission-critical environments.
+                    </p>
                 </div>
             </div>
         </div>
@@ -574,7 +669,7 @@
                 <h2>Architecture</h2>
                 <p class="subhead">Orchestration at the Kernel Layer</p>
             </div>
-            
+
             <div class="arch-diagram">
                 <div class="arch-node">RUST RUNTIME</div>
                 <div class="arch-arrow">→</div>
@@ -588,7 +683,8 @@
             </div>
 
             <p class="arch-desc">
-                By injecting eBPF programs directly into the OS kernel, Aixkern captures traffic before it hits the TCP/IP stack. 
+                By injecting eBPF programs directly into the OS kernel, Aixkern captures traffic before it hits the
+                TCP/IP stack.
                 Our reinforcement learning agent then routes data via QUIC streams to the optimal fleet node.
             </p>
         </div>
@@ -598,18 +694,21 @@
         <div class="moat-content">
             <h2>Beyond Protocol:<br>Establishing a Moat.</h2>
             <p>
-                Standard orchestration tools operate in user space with heavy overhead. 
-                Aixkern's patented fusion of <strong>eBPF kernel access</strong> and <strong>autonomous AI decision-making</strong> creates a non-replicable performance ceiling.
+                Standard orchestration tools operate in user space with heavy overhead.
+                Aixkern's patented fusion of <strong>eBPF kernel access</strong> and <strong>autonomous AI
+                    decision-making</strong> creates a non-replicable performance ceiling.
             </p>
             <p>
-                We aren't just building a faster network; we are building the nervous system for the next generation of autonomy.
+                We aren't just building a faster network; we are building the nervous system for the next generation of
+                autonomy.
             </p>
         </div>
         <ul class="moat-stats">
             <li>Target: Defense & Autonomous Swarms</li>
             <li>Target: >100k Unit Robotics Fleets</li>
             <li>Target: High-Frequency Trading</li>
-            <li style="margin-top:20px; color: var(--text-main); font-weight:700;">Team: Ex-Kernel Devs & DeepMind Alumni</li>
+            <li style="margin-top:20px; color: var(--text-main); font-weight:700;">Team: Ex-Kernel Devs & DeepMind
+                Alumni</li>
         </ul>
     </section>
 
@@ -631,11 +730,11 @@
         const toggleBtn = document.getElementById('theme-toggle');
         const themeText = document.getElementById('theme-text');
         const html = document.documentElement;
-        
+
         // Check local storage or system preference
         const savedTheme = localStorage.getItem('theme');
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
+
         if (savedTheme === 'light' || (!savedTheme && !systemDark)) {
             html.classList.remove('dark');
             html.classList.add('light');
@@ -686,4 +785,5 @@
         });
     </script>
 </body>
+
 </html>
