@@ -41,7 +41,11 @@ Unlike standard stacks, every AIxKer node is equipped with an embedded **Intelli
 
 The control plane and userspace logic are written in **Rust**, ensuring memory safety and concurrency without the latency spikes associated with Garbage Collectors.
 
-## 4. Key Performance Metrics (Benchmarks)
+## 4. Diagram
+
+![Technical overview](diagram.png)
+
+## 5. Key Performance Metrics (Benchmarks)
 
 Internal benchmarking against the standard Linux network stack demonstrates significant improvements:
 
@@ -49,7 +53,7 @@ Internal benchmarking against the standard Linux network stack demonstrates sign
 * **Throughput:** Capable of handling millions of packets per second (PPS) on commodity hardware.
 * **Stability:** The RL agent prevents tail latency spikes by shedding load *before* a node becomes unresponsive.
 
-## 5. Use Cases
+## 6. Use Cases
 
 AIxKer is optimized for scenarios requiring extreme efficiency:
 
@@ -57,7 +61,7 @@ AIxKer is optimized for scenarios requiring extreme efficiency:
 * **High-Frequency Trading (HFT)** infrastructure.
 * **Edge Computing** clusters where nodes have varying capacities.
 
-## 6. Future Roadmap
+## 7. Future Roadmap
 
 * Expanding the RL model to predict traffic bursts before they happen.
 * Implementation of full userspace TCP stack logic.

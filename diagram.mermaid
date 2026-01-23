@@ -1,0 +1,49 @@
+graph LR
+    %% Theme & Styling
+    classDef agent fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b;
+    classDef fastPath fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef slowPath fill:#ffebee,stroke:#c62828,stroke-dasharray: 5 5,color:#b71c1c;
+    classDef component fill:#ffffff,stroke:#333,stroke-width:1px;
+
+    %% External Inputs
+    Network(External Network Packet) --> NIC[NIC Driver]:::component
+
+    subgraph Host Machine [Linux Host Kernel & User Space]
+        
+        subgraph Kernel Space [Kernel Space eBPF Layer]
+            NIC --> XDP{"XDP Hook (eBPF Prog)"}:::component
+            
+            %% The Standard Path (Bypassed)
+            XDP -.->|"Standard Path (High Overhead)"| LinuxStack[Linux Kernel Networking Stack]:::slowPath
+
+            %% The AIxKer Path
+            XDP ==>|"Consults"| RLAgent{"RL Agent (AI Model)"}:::agent
+            
+            %% Metrics Feed
+            SystemMetrics[(System Metrics CPU/IRQ)] -.-> RLAgent
+
+            %% Decision 1: Redirect
+            RLAgent --"Route A: High Pressure (Redirect)"--> XDP_TX[XDP_TX Action]:::component
+            XDP_TX --> NIC
+
+            %% Decision 2: Local Process
+            RLAgent =="Route B: Low Pressure (Zero-Copy)"==> XSK[AF_XDP Socket / UMEM Map]:::fastPath
+        end
+
+        subgraph User Space [User Space Rust Runtime]
+            %% FIXED: Changed <==> to == for thick link and moved text correctly
+            XSK == "Shared Memory Access" === RustApp[Rust Application Logic]:::fastPath
+        end
+    end
+
+    %% Output Destinations
+    XDP_TX -.-> PeerNode[Peer AIxKer Node]:::component
+    
+    %% Gossip Protocol
+    %% FIXED: Changed <.-.-> to <--> for bidirectional; Mermaid doesn't support <.-.->
+    RLAgent <--> |"Gossip Protocol (State Sync)"| OtherAgents[Other RL Agents]:::agent
+
+    %% Legend/Titles
+    style RLAgent stroke-dasharray: 0
+    style XSK stroke-dasharray: 0
+    style RustApp stroke-dasharray: 0
