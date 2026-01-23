@@ -1,2 +1,2 @@
-# ai-protocol-landing
+# Aixker-landing
 The main landing page to introduce the AI based protocol
