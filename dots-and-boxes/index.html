@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dots &amp; Boxes</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script>
+    window.__PIPESHUB_URL__      = 'http://35.254.245.46:3000';
+    window.__PIPESHUB_AUTH_URL__ = 'http://35.254.245.46:80';
+  </script>
+</head>
+<body>
+  <div id="app">
+
+    <header>
+      <h1>Dots &amp; Boxes</h1>
+      <div class="my-id">
+        <span class="label">Your ID:</span>
+        <span id="my-uuid" class="uuid">—</span>
+        <button id="copy-uuid" class="btn-icon" aria-label="Copy your ID" title="Copy ID">⧉</button>
+      </div>
+    </header>
+
+    <section id="connect-panel">
+      <div class="input-row">
+        <input id="opponent-uuid" type="text" placeholder="Opponent UUID" aria-label="Opponent UUID" autocomplete="off" spellcheck="false" />
+        <button id="connect-btn" class="btn-primary">Challenge</button>
+      </div>
+      <p id="connect-status" class="status-text" aria-live="polite"></p>
+    </section>
+
+    <section id="game-panel" hidden>
+      <div class="score-bar">
+        <div class="score player-a">
+          <span class="player-label">Player A</span>
+          <span id="score-a" class="score-value">0</span>
+        </div>
+        <span class="score-divider">vs</span>
+        <div class="score player-b">
+          <span class="player-label">Player B</span>
+          <span id="score-b" class="score-value">0</span>
+        </div>
+      </div>
+
+      <div id="board-container"></div>
+
+      <p id="turn-status" class="status-text"></p>
+    </section>
+
+  </div>
+
+  <!-- Accessible announcer for score/turn changes -->
+  <div id="announcer" aria-live="polite" class="sr-only"></div>
+
+  <!-- Toast notification -->
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Full-screen overlay (win screen, challenge modal, disconnect) -->
+  <div id="overlay" role="dialog" aria-modal="true" hidden>
+    <div id="overlay-content"></div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .catch(err => console.warn('SW registration failed:', err))
+    }
+  </script>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
