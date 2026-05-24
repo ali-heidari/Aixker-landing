@@ -4,8 +4,8 @@ const EDGE_W = 4      // drawn edge stroke width
 const GHOST_W = 1     // undrawn edge stroke width
 const HIT = 14        // hit-target width
 
-const COLOR_A = 'var(--color-a)'
-const COLOR_B = 'var(--color-b)'
+const COLOR_A = '#ef4444'
+const COLOR_B = '#3b82f6'
 const COLOR_DOT  = '#94a3b8'
 const COLOR_EDGE = '#f1f5f9'
 const COLOR_GHOST = 'rgba(148,163,184,0.18)'
@@ -141,16 +141,16 @@ export function updateBoard(state) {
   for (let r = 0; r < grid; r++) {
     for (let c = 0; c < grid; c++) {
       if (state.boxes[r][c] !== prev.boxes[r][c]) {
-        const el = _svg.getElementById(boxKey(r, c))
+        const el = _svg.querySelector('#' + boxKey(r, c))
         if (el) el.setAttribute('fill', _boxFill(state.boxes[r][c]))
 
         const owner = state.boxes[r][c]
         const color = _edgeColor(owner)
         const edges = [
-          _svg.getElementById(hEdgeKey(r,     c)),
-          _svg.getElementById(hEdgeKey(r + 1, c)),
-          _svg.getElementById(vEdgeKey(r, c)),
-          _svg.getElementById(vEdgeKey(r, c + 1)),
+          _svg.querySelector('#' + hEdgeKey(r,     c)),
+          _svg.querySelector('#' + hEdgeKey(r + 1, c)),
+          _svg.querySelector('#' + vEdgeKey(r, c)),
+          _svg.querySelector('#' + vEdgeKey(r, c + 1)),
         ]
         for (const edge of edges) {
           if (edge) edge.setAttribute('stroke', color)
@@ -163,12 +163,12 @@ export function updateBoard(state) {
   for (let r = 0; r <= grid; r++) {
     for (let c = 0; c < grid; c++) {
       if (state.hEdges[r][c] && !prev.hEdges[r][c]) {
-        const line = _svg.getElementById(hEdgeKey(r, c))
+        const line = _svg.querySelector('#' + hEdgeKey(r, c))
         if (line) {
           line.setAttribute('stroke', _edgeColor(state.hEdges[r][c]))
           line.setAttribute('stroke-width', EDGE_W)
         }
-        const hit = _svg.getElementById(hitHKey(r, c))
+        const hit = _svg.querySelector('#' + hitHKey(r, c))
         if (hit) hit.remove()
       }
     }
@@ -178,12 +178,12 @@ export function updateBoard(state) {
   for (let r = 0; r < grid; r++) {
     for (let c = 0; c <= grid; c++) {
       if (state.vEdges[r][c] && !prev.vEdges[r][c]) {
-        const line = _svg.getElementById(vEdgeKey(r, c))
+        const line = _svg.querySelector('#' + vEdgeKey(r, c))
         if (line) {
           line.setAttribute('stroke', _edgeColor(state.vEdges[r][c]))
           line.setAttribute('stroke-width', EDGE_W)
         }
-        const hit = _svg.getElementById(hitVKey(r, c))
+        const hit = _svg.querySelector('#' + hitVKey(r, c))
         if (hit) hit.remove()
       }
     }
@@ -311,7 +311,7 @@ function _attachHitListeners(el) {
 
 function _syncHitTargets() {
   if (!_svg) return
-  const targets = _svg.getElementById('hit-targets')
+  const targets = _svg.querySelector('#hit-targets')
   if (!targets) return
   const disabled = !!_options.disabled
   for (const el of targets.children) {
