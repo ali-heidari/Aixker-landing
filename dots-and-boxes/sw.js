@@ -1,16 +1,17 @@
 const CACHE = 'dotsboxes-v1'
+const BASE = new URL('./', self.location.href).pathname
 const SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/styles/main.css',
-  '/src/app.js',
-  '/src/game.js',
-  '/src/ui.js',
-  '/src/pipes.js',
-  '/src/store.js',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'styles/main.css',
+  BASE + 'src/app.js',
+  BASE + 'src/game.js',
+  BASE + 'src/ui.js',
+  BASE + 'src/pipes.js',
+  BASE + 'src/store.js',
+  BASE + 'icons/icon-192.png',
+  BASE + 'icons/icon-512.png',
 ]
 
 self.addEventListener('install', e => {
