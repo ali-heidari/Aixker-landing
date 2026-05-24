@@ -1,7 +1,4 @@
 
-window.__PIPESHUB_URL__ = 'https://35.254.245.46:3000'
-window.__PIPESHUB_AUTH_URL__ = 'https://35.254.245.46:16916'
-
 import * as game  from './game.js'
 import * as ui    from './ui.js'
 import * as pipes from './pipes.js'
