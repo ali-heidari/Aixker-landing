@@ -214,7 +214,7 @@ They do not need to be polished — a coloured square with "D&B" is enough.
 **Acceptance check — Phase 2:**
 ```bash
 npx serve .
-# Open http://localhost:3000 — page loads, no console errors, looks reasonable
+# Open https://localhost:3000 — page loads, no console errors, looks reasonable
 # Open DevTools → Application → Manifest — no errors
 ```
 
@@ -286,8 +286,8 @@ not import PipesClientJS directly.
 ```js
 // src/pipes.js
 
-const PIPESHUB_URL = window.__PIPESHUB_URL__ ?? 'http://localhost:3000'
-const AUTH_URL     = window.__PIPESHUB_AUTH_URL__ ?? 'http://localhost:16916'
+const PIPESHUB_URL = window.__PIPESHUB_URL__ ?? 'https://localhost:3000'
+const AUTH_URL     = window.__PIPESHUB_AUTH_URL__ ?? 'https://localhost:16916'
 
 let _unit = null   // PipesClientJS Unit instance — module-private
 
@@ -506,8 +506,8 @@ services:
       - "8080:8080"
     environment:
       # Inject PipesHub address at runtime via envsubst or nginx template
-      - PIPESHUB_URL=http://192.168.100.50:3000
-      - PIPESHUB_AUTH_URL=http://192.168.100.50:16916
+      - PIPESHUB_URL=https://192.168.100.50:3000
+      - PIPESHUB_AUTH_URL=https://192.168.100.50:16916
 
   mongo:
     image: mongo:7
@@ -556,7 +556,7 @@ Neither hub address is ever exposed to the browser.
 **Acceptance check — Phase 7:**
 ```bash
 cd docker && docker compose up -d --build
-# Open http://localhost:8080 in two browser tabs
+# Open https://localhost:8080 in two browser tabs
 # Play a full game — confirm it works
 # docker compose stop hub1
 # Confirm clients reconnect within 3 seconds and can continue playing
