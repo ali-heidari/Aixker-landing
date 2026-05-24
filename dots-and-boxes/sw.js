@@ -31,8 +31,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url
-  // Network-first for PipesHub traffic — never cache real-time messages
-  if (url.includes(':3000') || url.includes(':16916') || url.includes('socket.io')) return
+  // Skip cross-origin requests (PipesHub auth, socket.io, etc.)
+  if (!url.startsWith(self.location.origin)) return
 
   e.respondWith(
     caches.match(e.request).then(cached => {
