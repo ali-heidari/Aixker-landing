@@ -55,6 +55,26 @@ h1 {
   word-break: break-all;
 }
 
+.powered-by {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.powered-by a { color: var(--text); text-decoration: none; }
+.powered-by a:hover { text-decoration: underline; }
+
+.arch-line {
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  opacity: 0.6;
+  letter-spacing: 0.01em;
+}
+
 /* ── Connect panel ───────────────────────────────── */
 .input-row { display: flex; gap: 0.5rem; }
 
