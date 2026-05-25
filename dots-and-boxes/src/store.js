@@ -13,8 +13,8 @@ function generateUUID() {
 }
 
 export function getOrCreateUUID() {
-  let id = localStorage.getItem(KEY_UUID)
-  if (!id) { id = generateUUID(); localStorage.setItem(KEY_UUID, id) }
+  let id = sessionStorage.getItem(KEY_UUID)
+  if (!id) { id = generateUUID(); sessionStorage.setItem(KEY_UUID, id) }
   return id
 }
 
