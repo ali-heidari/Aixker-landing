@@ -1,4 +1,4 @@
-const CACHE = 'dotsboxes-v1'
+const CACHE = 'dotsboxes-v2'
 const BASE = new URL('./', self.location.href).pathname
 const SHELL = [
   BASE,
