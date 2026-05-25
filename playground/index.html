@@ -239,20 +239,23 @@
 
         /* ---- MOBILE ---- */
         @media (max-width: 700px) {
-            html, body { overflow: auto; }
-
-            .layout { grid-template-rows: 52px auto; height: auto; }
+            .layout { grid-template-rows: 48px 1fr; }
 
             .panes {
                 grid-template-columns: 1fr;
-                grid-template-rows: 4px 480px 4px 480px;
-                height: auto;
+                grid-template-rows: 1fr 4px 1fr;
             }
 
             .divider { cursor: row-resize; }
             .divider::after { content: '···'; }
 
+            .topbar { padding: 0 12px; }
             .topbar-center { display: none; }
+            .topbar-left .wordmark { display: none; }
+
+            .pane-header { height: 30px; }
+
+            .btn-reload { padding: 5px 10px; font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -351,36 +354,54 @@
     // Drag-to-resize divider
     const divider = document.getElementById('divider');
     const panes   = document.getElementById('panes');
-    const paneA   = document.getElementById('pane-a');
-    const paneB   = document.getElementById('pane-b');
 
     let dragging = false;
 
-    divider.addEventListener('mousedown', e => {
-        dragging = true;
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        // Cover iframes so they don't swallow events
-        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
-    });
+    function isMobileLayout() { return window.innerWidth <= 700; }
 
-    document.addEventListener('mousemove', e => {
-        if (!dragging) return;
+    function resizePanes(clientX, clientY) {
         const rect = panes.getBoundingClientRect();
-        const total = rect.width - 4; // 4px divider
-        const leftPx = Math.min(Math.max(e.clientX - rect.left, 120), total - 120);
-        const leftFr = leftPx / total;
-        const rightFr = 1 - leftFr;
-        panes.style.gridTemplateColumns = `${leftFr}fr 4px ${rightFr}fr`;
-    });
+        if (isMobileLayout()) {
+            const total = rect.height - 4;
+            const topPx = Math.min(Math.max(clientY - rect.top, 80), total - 80);
+            const fr = topPx / total;
+            panes.style.gridTemplateRows = `${fr}fr 4px ${1 - fr}fr`;
+        } else {
+            const total = rect.width - 4;
+            const leftPx = Math.min(Math.max(clientX - rect.left, 120), total - 120);
+            const fr = leftPx / total;
+            panes.style.gridTemplateColumns = `${fr}fr 4px ${1 - fr}fr`;
+        }
+    }
 
-    document.addEventListener('mouseup', () => {
+    function startDrag() {
+        dragging = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = isMobileLayout() ? 'row-resize' : 'col-resize';
+        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
+    }
+
+    function stopDrag() {
         if (!dragging) return;
         dragging = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
-    });
+    }
+
+    // Mouse
+    divider.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', e => { if (dragging) resizePanes(e.clientX, e.clientY); });
+    document.addEventListener('mouseup', stopDrag);
+
+    // Touch
+    divider.addEventListener('touchstart', e => { startDrag(); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', e => {
+        if (!dragging) return;
+        resizePanes(e.touches[0].clientX, e.touches[0].clientY);
+        e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', stopDrag);
 </script>
 
 </body>
