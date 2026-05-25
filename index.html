@@ -14,751 +14,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
 
-    <style>
-        /* --- CSS VARIABLES & RESET --- */
-        :root {
-            --bg-body: #050505;
-            --bg-card: #0a0a0a;
-            --bg-card-hover: #121212;
-            --text-main: #ededed;
-            --text-muted: #888888;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.15);
-            --border: rgba(255, 255, 255, 0.1);
-            --border-hover: rgba(59, 130, 246, 0.5);
-            --font-main: 'Inter', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-            --max-width: 1200px;
-            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        html.light {
-            --bg-body: #ffffff;
-            --bg-card: #f7f7f7;
-            --bg-card-hover: #f0f0f0;
-            --text-main: #111111;
-            --text-muted: #666666;
-            --accent: #1d4ed8;
-            --accent-glow: rgba(29, 78, 216, 0.1);
-            --border: rgba(0, 0, 0, 0.1);
-            --border-hover: rgba(29, 78, 216, 0.5);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            font-family: var(--font-main);
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-            transition: background-color 0.5s ease, color 0.5s ease;
-        }
-
-        a { text-decoration: none; color: inherit; transition: var(--transition); }
-        ul { list-style: none; }
-
-        .container {
-            max-width: var(--max-width);
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .mono { font-family: var(--font-mono); font-size: 0.9em; }
-        .accent { color: var(--accent); }
-
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
-        }
-        .reveal.active { opacity: 1; transform: translateY(0); }
-
-        /* --- HEADER --- */
-        header {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            padding: 16px 0;
-            z-index: 1000;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.3s, background 0.3s;
-        }
-
-        header.scrolled {
-            border-bottom: 1px solid var(--border);
-            background: rgba(5, 5, 5, 0.85);
-        }
-
-        html.light header.scrolled {
-            background: rgba(255, 255, 255, 0.85);
-        }
-
-        .nav-wrapper {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            letter-spacing: -0.02em;
-            flex-shrink: 0;
-        }
-
-        .logo svg { height: 32px; width: 32px; }
-
-        nav {
-            display: flex;
-            gap: 28px;
-            align-items: center;
-        }
-
-        nav a {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--text-muted);
-        }
-
-        nav a:hover { color: var(--text-main); }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .toggle-btn {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-        }
-
-        .toggle-btn:hover { border-color: var(--text-muted); }
-
-        @media (max-width: 768px) {
-            nav { display: none; }
-        }
-
-        /* --- HERO --- */
-        #hero {
-            padding: 180px 0 100px;
-            text-align: center;
-            position: relative;
-        }
-
-        #hero::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 800px;
-            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-            z-index: -1;
-            pointer-events: none;
-        }
-
-        h1 {
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -0.04em;
-            margin-bottom: 24px;
-            background: linear-gradient(180deg, var(--text-main) 0%, var(--text-muted) 120%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .subhead {
-            font-size: clamp(1.05rem, 2vw, 1.3rem);
-            color: var(--text-muted);
-            max-width: 680px;
-            margin: 0 auto 48px;
-            font-weight: 400;
-        }
-
-        .cta-group {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--text-main);
-            color: var(--bg-body);
-            border: 1px solid var(--text-main);
-        }
-
-        .btn-primary:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-        }
-
-        .btn-secondary:hover { border-color: var(--text-main); }
-
-        /* --- METRICS --- */
-        #metrics {
-            padding: 60px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 24px;
-        }
-
-        .metric-card {
-            background: var(--bg-card);
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            text-align: center;
-            transition: var(--transition);
-        }
-
-        .metric-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--accent);
-            box-shadow: 0 8px 24px var(--accent-glow);
-        }
-
-        .metric-val {
-            display: block;
-            font-size: 2.4rem;
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 8px;
-            font-family: var(--font-mono);
-            letter-spacing: -0.05em;
-        }
-
-        .metric-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            font-weight: 600;
-        }
-
-        /* --- SECTION COMMON --- */
-        .section-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-
-        .section-header h2 {
-            font-size: clamp(1.8rem, 4vw, 2.5rem);
-            margin-bottom: 16px;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-        }
-
-        .section-header p {
-            color: var(--text-muted);
-            font-size: 1.05rem;
-            max-width: 560px;
-            margin: 0 auto;
-        }
-
-        /* --- FEATURES --- */
-        #features { padding: 120px 0; }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 24px;
-            margin-top: 60px;
-        }
-
-        .feature-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 32px;
-            border-radius: 16px;
-            transition: var(--transition);
-        }
-
-        .feature-card:hover { border-color: var(--border-hover); }
-
-        .feature-icon {
-            margin-bottom: 24px;
-            color: var(--accent);
-        }
-
-        .feature-card h3 {
-            font-size: 1.2rem;
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
-
-        .feature-card p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            line-height: 1.7;
-        }
-
-        /* --- ARCHITECTURE --- */
-        #architecture {
-            padding: 100px 0;
-            background: linear-gradient(to bottom, var(--bg-body), var(--bg-card) 50%, var(--bg-body));
-        }
-
-        .arch-flow {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            align-items: start;
-            margin-top: 60px;
-        }
-
-        .arch-steps {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .arch-step {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-        }
-
-        .arch-step-line {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .arch-step-dot {
-            width: 36px;
-            height: 36px;
-            background: var(--bg-card);
-            border: 2px solid var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--accent);
-            flex-shrink: 0;
-        }
-
-        .arch-step-connector {
-            width: 2px;
-            height: 40px;
-            background: linear-gradient(to bottom, var(--accent), transparent);
-            opacity: 0.3;
-        }
-
-        .arch-step-body { padding-bottom: 32px; }
-
-        .arch-step-body h4 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-            margin-top: 6px;
-        }
-
-        .arch-step-body p {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-
-        .arch-code {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            line-height: 1.9;
-            overflow-x: auto;
-        }
-
-        .arch-code .hl { color: var(--accent); }
-        .arch-code .ok { color: #4ade80; }
-        .arch-code .dim { color: #444; }
-
-        @media (max-width: 900px) {
-            .arch-flow { grid-template-columns: 1fr; }
-        }
-
-        /* --- BENCHMARK --- */
-        #benchmark { padding: 100px 0; }
-
-        .bench-table-wrap {
-            overflow-x: auto;
-            margin-top: 60px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-        }
-
-        .bench-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-
-        .bench-table th {
-            padding: 16px 20px;
-            text-align: left;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--text-muted);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-card);
-        }
-
-        .bench-table td {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-        }
-
-        .bench-table tr:last-child td { border-bottom: none; }
-
-        .bench-table tr.winner td { color: var(--text-main); }
-        .bench-table tr.winner td:first-child { font-weight: 700; }
-
-        .bench-table tr:not(.winner) td { color: var(--text-muted); }
-
-        .bench-winner-val {
-            color: #4ade80 !important;
-            font-weight: 700;
-        }
-
-        .bench-warn {
-            color: #f87171 !important;
-        }
-
-        .bench-note {
-            margin-top: 24px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-
-        /* --- ECOSYSTEM --- */
-        #ecosystem { padding: 100px 0; }
-
-        .ecosystem-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 60px;
-        }
-
-        .ecosystem-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 28px;
-            transition: var(--transition);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .ecosystem-card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-4px);
-        }
-
-        .ecosystem-card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .ecosystem-badge {
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--accent);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .ecosystem-card h3 {
-            font-size: 1.05rem;
-            font-weight: 600;
-        }
-
-        .ecosystem-card p {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            line-height: 1.65;
-            flex: 1;
-        }
-
-        .ecosystem-link {
-            font-size: 0.85rem;
-            color: var(--accent);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .ecosystem-link:hover { opacity: 0.8; }
-
-        /* --- DEMO --- */
-        #demo {
-            padding: 100px 0;
-            background: linear-gradient(to bottom, var(--bg-body), var(--bg-card) 50%, var(--bg-body));
-        }
-
-        .demo-inner {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-            margin-top: 60px;
-        }
-
-        .demo-content h3 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            margin-bottom: 16px;
-            letter-spacing: -0.03em;
-        }
-
-        .demo-content p {
-            color: var(--text-muted);
-            margin-bottom: 16px;
-            font-size: 0.95rem;
-            line-height: 1.7;
-        }
-
-        .demo-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 28px;
-        }
-
-        .demo-tag {
-            font-size: 0.8rem;
-            padding: 4px 10px;
-            border-radius: 4px;
-            background: var(--bg-body);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-        }
-
-        .demo-visual {
-            background: var(--bg-body);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .demo-visual::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 50% 50%, var(--accent-glow), transparent 70%);
-        }
-
-        .demo-visual-inner {
-            position: relative;
-            z-index: 1;
-        }
-
-        .demo-visual h4 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .demo-visual p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-bottom: 24px;
-        }
-
-        .demo-grid-preview {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 4px;
-            margin: 0 auto 24px;
-            max-width: 180px;
-        }
-
-        .demo-dot {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-        }
-
-        .demo-dot.filled {
-            background: var(--accent);
-            border-color: var(--accent);
-            box-shadow: 0 0 8px var(--accent-glow);
-        }
-
-        @media (max-width: 900px) {
-            .demo-inner { grid-template-columns: 1fr; }
-        }
-
-        /* --- MOAT / POSITIONING --- */
-        #moat {
-            padding: 100px 0;
-        }
-
-        .moat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: start;
-        }
-
-        .moat-content h2 {
-            font-size: clamp(1.8rem, 3.5vw, 2.5rem);
-            margin-bottom: 24px;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-        }
-
-        .moat-content p {
-            color: var(--text-muted);
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-            line-height: 1.75;
-        }
-
-        .moat-targets {
-            background: var(--bg-card);
-            padding: 32px;
-            border-radius: 16px;
-            border-left: 3px solid var(--accent);
-        }
-
-        .moat-targets h4 {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-muted);
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-
-        .target-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
-            font-size: 0.9rem;
-        }
-
-        .target-item::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: var(--accent);
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .target-item strong { color: var(--text-main); }
-        .target-item span { color: var(--text-muted); font-size: 0.85rem; }
-
-        @media (max-width: 900px) {
-            .moat-grid { grid-template-columns: 1fr; }
-        }
-
-        /* --- FOOTER --- */
-        footer {
-            padding: 60px 0;
-            border-top: 1px solid var(--border);
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .footer-links a {
-            margin-left: 24px;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .footer-links a:hover { color: var(--accent); }
-
-        .icon {
-            width: 32px;
-            height: 32px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 1.5;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/styles.css">
 </head>
 
 <body>
@@ -766,22 +22,7 @@
     <header id="header">
         <div class="container nav-wrapper">
             <div class="logo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
-                    <defs>
-                        <linearGradient id="color-2" gradientUnits="userSpaceOnUse">
-                            <stop style="stop-color: rgb(59, 130, 246);"></stop>
-                        </linearGradient>
-                    </defs>
-                    <ellipse style="fill: none; stroke-width: 6px; stroke: url(#color-2);" cx="237.152" cy="200" rx="100.818" ry="100.818"></ellipse>
-                    <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linejoin: bevel; stroke-linecap: round; stroke: url(#color-2);" d="M 282.324 123.341 L 213.106 286.254"></path>
-                    <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linejoin: bevel; stroke-linecap: round; stroke: currentcolor;" d="M 214.403 110.965 L 159.097 241.135"></path>
-                    <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linecap: round; stroke-linejoin: round; transform-origin: 248.164px 194.108px 0px; stroke: currentcolor;" d="M 282.001 276.922 L 214.327 111.292" transform="matrix(-1, 0, 0, -1, 0, 0)"></path>
-                    <path style="fill: rgb(216, 216, 216); stroke-linecap: round; stroke-linejoin: round; stroke-width: 24px; stroke: url(#color-2);" d="M 177.597 200 L 252.065 201.31"></path>
-                    <ellipse style="fill: currentcolor;" cx="246.862" cy="99.178" rx="7.529" ry="7.529"></ellipse>
-                    <ellipse style="fill: currentcolor;" cx="136.771" cy="200.37" rx="7.529" ry="7.529"></ellipse>
-                    <ellipse style="fill: currentcolor;" cx="236.959" cy="298.76" rx="7.529" ry="7.529"></ellipse>
-                    <ellipse style="fill: currentcolor;" cx="338.75" cy="198.828" rx="7.529" ry="7.529"></ellipse>
-                </svg>
+                <img src="assets/logo.svg" alt="AIxKer" height="32">
                 <span>AIxKer</span>
             </div>
 
@@ -810,10 +51,11 @@
                 Zero failures at 32,000 req/s peak load.
             </p>
             <div class="cta-group reveal">
-                <a href="https://github.com/ali-heidari/AION-Agent" class="btn btn-primary">
+                <a href="https://github.com/ali-heidari/AION-Agent" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
                     View on GitHub
                 </a>
                 <a href="#benchmark" class="btn btn-secondary">See Benchmarks</a>
+                <a href="https://aixker.com/dots-and-boxes/" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Try Demo</a>
             </div>
         </div>
     </section>
@@ -1069,7 +311,7 @@
                     </div>
                     <h3>AION-Agent</h3>
                     <p>The full agent: eBPF/XDP NAT engine, gossip layer, RL inference loop, SERVERMAP manager, and peer health-check. This is what runs on each node.</p>
-                    <a href="https://github.com/ali-heidari/AION-Agent" class="ecosystem-link">
+                    <a href="https://github.com/ali-heidari/AION-Agent" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1079,7 +321,7 @@
                     </div>
                     <h3>AION-EBPF</h3>
                     <p>The XDP kernel program: SYN handler, 5-tuple NAT engine, per-CPU lock-free port allocator, and incremental checksum rewriting. Runs before the Linux TCP stack.</p>
-                    <a href="https://github.com/ali-heidari/AION-EBPF" class="ecosystem-link">
+                    <a href="https://github.com/ali-heidari/AION-EBPF" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1089,7 +331,7 @@
                     </div>
                     <h3>Aixker-RLT</h3>
                     <p>A lightweight, embeddable reinforcement learning trainer in Rust. Two-layer neural network with REINFORCE policy gradient, async training loop, and JSON model checkpoints.</p>
-                    <a href="https://github.com/ali-heidari/aixker-rlt" class="ecosystem-link">
+                    <a href="https://github.com/ali-heidari/aixker-rlt" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1099,7 +341,7 @@
                     </div>
                     <h3>Aion-Transporter</h3>
                     <p>UDP multicast gossip transport used for zero-config peer discovery. Also provides a QUIC client/server and self-signed certificate generation. Used standalone or embedded.</p>
-                    <a href="https://github.com/ali-heidari/aion-transporter" class="ecosystem-link">
+                    <a href="https://github.com/ali-heidari/aion-transporter" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1108,8 +350,8 @@
                         <span class="ecosystem-badge">Demo App</span>
                     </div>
                     <h3>PipesHub</h3>
-                    <p>A Node.js Socket.io message broker that runs behind an AIxKer cluster. Three nodes with embedded agents — demonstrates real traffic being redistributed at the kernel level.</p>
-                    <a href="https://github.com/ali-heidari/PipesHub" class="ecosystem-link">
+                    <p>Node.js service that connects any two clients in real time — no custom backend needed. Clients register by name and exchange messages via request, ask, or streaming modes. AIxKer distributes the load across its nodes.</p>
+                    <a href="https://github.com/ali-heidari/PipesHub" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1119,7 +361,7 @@
                     </div>
                     <h3>Aion-Math</h3>
                     <p>Lightweight math utilities for metric normalization and scoring used by the RL agent during inference. Designed for embedded use with no heavy dependencies.</p>
-                    <a href="https://github.com/ali-heidari/aion-math" class="ecosystem-link">
+                    <a href="https://github.com/ali-heidari/aion-math" class="ecosystem-link" target="_blank" rel="noopener noreferrer">
                         GitHub →
                     </a>
                 </div>
@@ -1147,11 +389,21 @@
                     </p>
                     <div class="demo-tags">
                         <span class="demo-tag">Socket.io</span>
-                        <span class="demo-tag">PWA</span>
                         <span class="demo-tag">Real-time</span>
                         <span class="demo-tag">XDP load balanced</span>
                     </div>
-                    <a href="https://playground.aixker.com/dots-and-boxes" class="btn btn-primary">
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:28px; padding:16px 20px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; font-size:0.85rem;">
+                        <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:4px;">Powered by</div>
+                        <div style="display:flex; align-items:baseline; gap:8px;">
+                            <a href="https://github.com/ali-heidari/PipesHub" target="_blank" rel="noopener noreferrer" style="color:var(--accent); font-weight:600;">PipesHub</a>
+                            <span style="color:var(--text-muted);">— connects any two clients in real time with no custom backend; the game is one example.</span>
+                        </div>
+                        <div style="display:flex; align-items:baseline; gap:8px;">
+                            <a href="https://github.com/ali-heidari/AION-Agent" target="_blank" rel="noopener noreferrer" style="color:var(--accent); font-weight:600;">AIxKer Agent</a>
+                            <span style="color:var(--text-muted);">— eBPF/XDP kernel agent that distributes incoming connections across PipesHub nodes at line rate.</span>
+                        </div>
+                    </div>
+                    <a href="https://aixker.com/dots-and-boxes/" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
                         Play Now
                     </a>
                 </div>
@@ -1187,7 +439,7 @@
                             <div class="demo-dot filled"></div>
                             <div class="demo-dot filled"></div>
                         </div>
-                        <a href="https://playground.aixker.com/dots-and-boxes" class="btn btn-secondary" style="font-size:0.9rem; padding: 10px 20px;">
+                        <a href="https://aixker.com/dots-and-boxes/" class="btn btn-secondary" style="font-size:0.9rem; padding: 10px 20px;" target="_blank" rel="noopener noreferrer">
                             Open Demo →
                         </a>
                     </div>
@@ -1255,10 +507,10 @@
             <div>© 2026 AIxKer. Built in Rust.</div>
             <div class="footer-links">
                 <a href="mailto:ali-heidari@outlook.com">Contact</a>
-                <a href="https://www.youtube.com/@Aixker">YouTube</a>
-                <a href="https://github.com/ali-heidari/AION-Agent">GitHub</a>
-                <a href="architecture.pdf">Technical Brief</a>
-                <a href="https://opencollective.com/aixkernel">Support</a>
+                <a href="https://www.youtube.com/@Aixker" target="_blank" rel="noopener noreferrer">YouTube</a>
+                <a href="https://github.com/ali-heidari/AION-Agent" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a href="architecture.pdf" target="_blank" rel="noopener noreferrer">Technical Brief</a>
+                <a href="https://opencollective.com/aixkernel" target="_blank" rel="noopener noreferrer">Support</a>
             </div>
         </div>
     </footer>

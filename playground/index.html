@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIxKer Playground — Dots &amp; Boxes</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #050505;
+            --bg-card: #0d0d0d;
+            --text: #ededed;
+            --muted: #666;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59,130,246,0.15);
+            --border: rgba(255,255,255,0.08);
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+        }
+
+        /* ---- LAYOUT ---- */
+        .layout {
+            display: grid;
+            grid-template-rows: 52px 1fr;
+            height: 100vh;
+        }
+
+        /* ---- TOP BAR ---- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(5,5,5,0.95);
+            backdrop-filter: blur(12px);
+            gap: 16px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .topbar-left a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .topbar-left img { height: 24px; width: auto; }
+
+        .topbar-left .wordmark {
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .topbar-divider {
+            width: 1px;
+            height: 18px;
+            background: var(--border);
+        }
+
+        .topbar-title {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .topbar-center {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .step-num {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(59,130,246,0.15);
+            border: 1px solid rgba(59,130,246,0.4);
+            color: var(--accent);
+            font-size: 0.65rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step-arrow {
+            color: var(--border);
+            font-size: 0.75rem;
+            margin: 0 2px;
+        }
+
+        .topbar-right {
+            flex-shrink: 0;
+        }
+
+        .btn-reload {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .btn-reload:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* ---- SPLIT PANES ---- */
+        .panes {
+            display: grid;
+            grid-template-columns: 1fr 4px 1fr;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .pane {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .pane-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 36px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+            flex-shrink: 0;
+        }
+
+        .pane-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pane-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+
+        .pane-dot.green { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.3); }
+
+        .btn-refresh-pane {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+
+        .btn-refresh-pane:hover { color: var(--text); }
+
+        .pane iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        /* ---- DIVIDER ---- */
+        .divider {
+            background: var(--border);
+            position: relative;
+            cursor: col-resize;
+            transition: background 0.2s;
+        }
+
+        .divider:hover { background: var(--accent); }
+
+        .divider::after {
+            content: '⋮';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1;
+            letter-spacing: -2px;
+            pointer-events: none;
+        }
+
+        /* ---- MOBILE ---- */
+        @media (max-width: 700px) {
+            html, body { overflow: auto; }
+
+            .layout { grid-template-rows: 52px auto; height: auto; }
+
+            .panes {
+                grid-template-columns: 1fr;
+                grid-template-rows: 4px 480px 4px 480px;
+                height: auto;
+            }
+
+            .divider { cursor: row-resize; }
+            .divider::after { content: '···'; }
+
+            .topbar-center { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="../index.html">
+                <img src="../assets/logo.svg" alt="AIxKer">
+                <span class="wordmark">AIxKer</span>
+            </a>
+            <div class="topbar-divider"></div>
+            <span class="topbar-title">Playground</span>
+        </div>
+
+        <div class="topbar-center">
+            <div class="step">
+                <span class="step-num">1</span>
+                <span>Copy your ID from Player A</span>
+            </div>
+            <span class="step-arrow">→</span>
+            <div class="step">
+                <span class="step-num">2</span>
+                <span>Paste into Player B's opponent field</span>
+            </div>
+            <span class="step-arrow">→</span>
+            <div class="step">
+                <span class="step-num">3</span>
+                <span>Hit Challenge</span>
+            </div>
+        </div>
+
+        <div class="topbar-right">
+            <button class="btn-reload" onclick="reloadAll()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+                </svg>
+                Reload Both
+            </button>
+        </div>
+    </div>
+
+    <!-- SPLIT PANES -->
+    <div class="panes" id="panes">
+
+        <div class="pane" id="pane-a">
+            <div class="pane-header">
+                <div class="pane-label">
+                    <div class="pane-dot"></div>
+                    Player A
+                </div>
+                <button class="btn-refresh-pane" onclick="reloadPane('frame-a')" title="Reload">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+                    </svg>
+                </button>
+            </div>
+            <iframe id="frame-a" src="https://aixker.com/dots-and-boxes/" title="Player A" allow="clipboard-write"></iframe>
+        </div>
+
+        <div class="divider" id="divider"></div>
+
+        <div class="pane" id="pane-b">
+            <div class="pane-header">
+                <div class="pane-label">
+                    <div class="pane-dot green"></div>
+                    Player B
+                </div>
+                <button class="btn-refresh-pane" onclick="reloadPane('frame-b')" title="Reload">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+                    </svg>
+                </button>
+            </div>
+            <iframe id="frame-b" src="https://aixker.com/dots-and-boxes/" title="Player B" allow="clipboard-write"></iframe>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    function reloadPane(id) {
+        const frame = document.getElementById(id);
+        frame.src = frame.src;
+    }
+
+    function reloadAll() {
+        reloadPane('frame-a');
+        reloadPane('frame-b');
+    }
+
+    // Drag-to-resize divider
+    const divider = document.getElementById('divider');
+    const panes   = document.getElementById('panes');
+    const paneA   = document.getElementById('pane-a');
+    const paneB   = document.getElementById('pane-b');
+
+    let dragging = false;
+
+    divider.addEventListener('mousedown', e => {
+        dragging = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        // Cover iframes so they don't swallow events
+        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
+    });
+
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const rect = panes.getBoundingClientRect();
+        const total = rect.width - 4; // 4px divider
+        const leftPx = Math.min(Math.max(e.clientX - rect.left, 120), total - 120);
+        const leftFr = leftPx / total;
+        const rightFr = 1 - leftFr;
+        panes.style.gridTemplateColumns = `${leftFr}fr 4px ${rightFr}fr`;
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" xmlns:bx="https://boxy-svg.com">
+  <defs>
+    <linearGradient id="color-0" bx:pinned="true" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1, 0, 0, 1, -0.818331, 0.000012)">
+      <stop style="stop-color: #d8d8d8;"></stop>
+    </linearGradient>
+    <linearGradient id="color-1" bx:pinned="true" gradientUnits="userSpaceOnUse">
+      <stop style="stop-color: #d8d8d8;"></stop>
+    </linearGradient>
+    <linearGradient id="color-2" bx:pinned="true" gradientUnits="userSpaceOnUse">
+      <stop style="stop-color: rgb(59, 130, 246);"></stop>
+    </linearGradient>
+  </defs>
+  <path style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0);" d="M 381.342 499.182 L 385.434 500"></path>
+  <ellipse style="fill: none; stroke-width: 6px; stroke: url(#color-2);" cx="237.152" cy="200" rx="100.818" ry="100.818"></ellipse>
+  <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linejoin: bevel; stroke-linecap: round; stroke: url(#color-2);" d="M 282.324 123.341 L 213.106 286.254"></path>
+  <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linejoin: bevel; stroke-linecap: round; stroke: currentcolor;" d="M 214.403 110.965 L 159.097 241.135"></path>
+  <path style="fill: rgb(216, 216, 216); stroke-width: 24px; stroke-linecap: round; stroke-linejoin: round; transform-origin: 248.164px 194.108px 0px; stroke: currentcolor;" d="M 282.001 276.922 L 214.327 111.292" transform="matrix(-1, 0, 0, -1, 0, 0)"></path>
+  <path style="fill: rgb(216, 216, 216); stroke-linecap: round; stroke-linejoin: round; stroke-width: 24px; stroke: url(#color-2);" d="M 177.597 200 L 252.065 201.31"></path>
+  <ellipse style="fill: currentcolor; stroke: rgb(0, 0, 0);" cx="246.862" cy="99.178" rx="7.529" ry="7.529"></ellipse>
+  <ellipse style="stroke: rgb(0, 0, 0); fill: currentcolor;" cx="136.771" cy="200.37" rx="7.529" ry="7.529"></ellipse>
+  <ellipse style="stroke: rgb(0, 0, 0); fill: currentcolor;" cx="236.959" cy="298.76" rx="7.529" ry="7.529"></ellipse>
+  <ellipse style="stroke: rgb(0, 0, 0); fill: currentcolor;" cx="338.75" cy="198.828" rx="7.529" ry="7.529"></ellipse>
+</svg>
