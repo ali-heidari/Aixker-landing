@@ -5,7 +5,7 @@ Purpose: Give AI coding agents the essential, actionable knowledge to be product
 Big picture
 - Landing page for the AIxKer project, introducing the AI-native distributed kernel.
 - Static HTML/CSS/JS site for project presentation and documentation.
-- Part of the AION ecosystem marketing and information materials.
+- Part of the AIxKer ecosystem marketing and information materials.
 
 Key files & where to look
 - index.html: Main landing page with project introduction
@@ -24,7 +24,7 @@ Project-specific conventions (do not change silently)
 
 Integration points & expectations
 - Hosted on GitHub Pages
-- Links to other AION repositories
+- Links to other AIxKer repositories
 - Contains project architecture diagrams
 
 Safe edits checklist for feature changes
