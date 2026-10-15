@@ -17,8 +17,9 @@ No error is raised on either side.
 
 - **Effect on the quiz:** on a multi-node cluster, any QUESTION, REVEAL,
   LEADERBOARD, END, JOIN reply or ANSWER ack between a host and a player on
-  different nodes is lost. With Aixker spreading connections, that is most
-  players.
+  different nodes is lost. The first casualty is JOIN: a player on another
+  node than the host never gets in, so the host never counts it and its loss
+  does not show up as missing QUESTIONs. See [Multi-node test](#multi-node-test-phase-4).
 - **What the quiz does:** nothing to hide it. The load generator counts
   QUESTION and REVEAL messages received against the count the host puts in
   END, and reports the loss.
@@ -104,3 +105,51 @@ The JWT has no `exp`. A leaked token works until `JWT_SECRET` changes.
 - **After a hub restart, players need a few seconds.** Socket.io retries with
   1–5 s of randomized backoff, then the player rejoins. A question that ends
   during that time counts as unanswered for them.
+
+## Multi-node test (Phase 4)
+
+Run on 2026-10-15 against PipesHub's own `docker-compose.yml` (develop
+`87bbbdd`): Redis plus three nodes, each with the Aixker agent
+(`ghcr.io/ali-heidari/aixker-agent:latest`, XDP attached to `eth0`). The
+compose file needed an override to start at all: it builds from a
+`pipeshub-dockerfile` that does not exist (the file is `Dockerfile`), and it
+mounts TLS certificates from `./certs` that are not in the repo. The override
+uses `Dockerfile`, turns TLS off, and publishes no host ports; every node was
+reached on its bridge IP (node-a `192.168.102.2`, b `.3`, c `.4`).
+
+Each run: 1,000 bots from `loadgen/` on the same machine, ramp 10 s, answer
+delay 500–4000 ms, correct rate 0.7, the sample quiz (10 questions), and a
+real host page in headless Chrome connected to node-a.
+
+| Run | Bots sent to | Joined | Failed joins | Answers acked | QUESTION + REVEAL lost |
+|---|---|---|---|---|---|
+| A | a, b, c round-robin | 104 / 1000 | 896 (all JOIN timeouts) | 1040 / 1040 | 0 of 2080 |
+| A2 (same as A) | a, b, c round-robin | 334 / 1000 | 666 (all JOIN timeouts) | 3340 / 3340 | 0 of 6680 |
+| B | node-a only | 1000 / 1000 | 0 | 10000 / 10000 | 0 of 20000 |
+
+Per node, run A2: node-a 334 bots, 334 joined; node-b 333, 0 joined;
+node-c 333, 0 joined. Run B ANSWER ack p50 / p95 / p99 was 4.4 / 10.1 /
+20.1 ms (max 57.9), join p50 / p95 / p99 32.5 / 147.6 / 178.4 ms, with no
+disconnects; about the same as the single-node run.
+
+**Cause of the failed joins (b and c):** item 1 above. A bot on node-b sends
+JOIN to `quiz-host-<pin>`; node-b finds the host's socket id in Redis and
+emits to it on its own Socket.io server, where that socket does not exist.
+Nothing arrives and nobody gets an error, so the bot times out after 10 s.
+Every bot on b or c failed this way in every run. The quiz was not changed to
+work around it: players can only be served by the node the host is on until
+PipesHub routes between nodes.
+
+**Run A, node-a:** only the first 104 of node-a's 334 bots joined (bots 1–104
+in start order, the first ~3 s of the ramp); every later bot sent to node-a's
+IP timed out on JOIN the same way as the b and c bots. The host saw only those
+104 JOINs, so the later JOINs reached a node without the host's socket. The
+likely cause is the Aixker agent marking node-a busy and redirecting new
+connections to b or c, but this is **not confirmed**: it did not happen in
+A2 or B, and the container logs have not been checked yet. During A2, a probe
+that opened sockets to node-a's IP and messaged a unit known to be on node-a
+found every socket on node-a.
+
+**Aixker in run B:** all 1,000 sockets stayed on node-a and nothing was
+redirected. When the agent does redirect, those players will fail to join for
+the reason above, because the host is still on node-a.
