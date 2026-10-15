@@ -167,16 +167,32 @@ Every bot on b or c failed this way in every run. The quiz was not changed to
 work around it: players can only be served by the node the host is on until
 PipesHub routes between nodes.
 
-**Run A, node-a:** only the first 104 of node-a's 334 bots joined (bots 1–104
-in start order, the first ~3 s of the ramp); every later bot sent to node-a's
-IP timed out on JOIN the same way as the b and c bots. The host saw only those
-104 JOINs, so the later JOINs reached a node without the host's socket. The
-likely cause is the Aixker agent marking node-a busy and redirecting new
-connections to b or c, but this is **not confirmed**: it did not happen in
-A2 or B, and the container logs have not been checked yet. During A2, a probe
-that opened sockets to node-a's IP and messaged a unit known to be on node-a
-found every socket on node-a.
+**Run A, node-a: Aixker redirected it.** Only the first 104 of node-a's 334
+bots joined (bots 1–104 in start order, the first ~3 s of the ramp); every
+later bot sent to node-a's IP timed out on JOIN like the b and c bots. The
+container logs show why. At 22:18:52.5 UTC node-a's agent gossiped state 0
+(busy) and logged `Redirecting to agent 192.168.102.4`. From then on, new
+connections to node-a's IP were handed to node-c. Socket.io connections
+logged per node during the run (22:18:49–22:19:10):
 
-**Aixker in run B:** all 1,000 sockets stayed on node-a and nothing was
-redirected. When the agent does redirect, those players will fail to join for
-the reason above, because the host is still on node-a.
+| Node | Bots sent to its IP | Connections it logged |
+|---|---|---|
+| node-a | 334 | 105 (the host + 104 bots) |
+| node-b | 333 | 333 |
+| node-c | 333 | 563 (its own 333 + 230 redirected from node-a) |
+
+The redirect itself worked: the connections were accepted and registered on
+node-c. They failed only because the host's socket was on node-a (item 1).
+So with Aixker in front, a player can be moved off the host's node even when
+it connected to the host's node, and then it cannot join.
+
+**When the agent redirects is not predictable from the load.** Each agent
+gossips its state (0 busy, 1, 2) every 30 s. The states changed between 0, 1
+and 2 every few gossips on all three nodes, including in the two minutes
+before any test traffic (node-c reported 0 at 22:17:22 with no clients).
+Node-a also reported 0 at 22:21:22, but run B started 30 s later and its
+1,000 sockets all stayed on node-a (node-a logged 1,001 connections, b and c
+none). In A2, node-a logged 461 connections (334 bots, the host, and 126 from
+the placement probe), b and c 333 each, and nothing was redirected. The
+agent's logs do not show its inputs, so the quiz test cannot say why it chose
+busy when it did.
