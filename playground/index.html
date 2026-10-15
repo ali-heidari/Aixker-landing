@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIxKer Playground — Dots &amp; Boxes</title>
+    <title>AIxKer Playground</title>
+    <meta name="description" content="Small multiplayer games that run on PipesHub and Aixker-Agent.">
 
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
@@ -13,432 +14,375 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+    <script>
+        // Theme: same rule and storage key as the landing page.
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem('theme'); } catch (e) {}
+            if (saved === 'light' || (!saved && !matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.replace('dark', 'light');
+            }
+        })();
+    </script>
+
     <style>
-        :root {
+        :root, html.dark {
             --bg: #050505;
             --bg-card: #0d0d0d;
+            --bg-raised: #161616;
             --text: #ededed;
-            --muted: #666;
+            --muted: #8a8a8a;
             --accent: #3b82f6;
             --accent-glow: rgba(59,130,246,0.15);
-            --border: rgba(255,255,255,0.08);
+            --border: rgba(255,255,255,0.1);
             --mono: 'JetBrains Mono', monospace;
+
+            --opt-0: #dc2626;
+            --opt-1: #2563eb;
+            --opt-2: #f59e0b;
+            --opt-3: #15803d;
+            --dot: #8a8a8a;
+            --line-a: #3b82f6;
+            --line-b: #4ade80;
+
+            color-scheme: dark;
+        }
+
+        html.light {
+            --bg: #ffffff;
+            --bg-card: #f7f7f7;
+            --bg-raised: #ededed;
+            --text: #111111;
+            --muted: #5f5f5f;
+            --accent: #1d4ed8;
+            --accent-glow: rgba(29,78,216,0.1);
+            --border: rgba(0,0,0,0.12);
+            --dot: #5f5f5f;
+            --line-a: #1d4ed8;
+            --line-b: #15803d;
+
+            color-scheme: light;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
-            height: 100%;
+            min-height: 100%;
             background: var(--bg);
             color: var(--text);
             font-family: 'Inter', sans-serif;
+            line-height: 1.5;
             -webkit-font-smoothing: antialiased;
-            overflow: hidden;
         }
 
-        /* ---- LAYOUT ---- */
-        .layout {
-            display: grid;
-            grid-template-rows: 52px 1fr;
-            height: 100vh;
-        }
+        body { display: flex; flex-direction: column; min-height: 100dvh; }
 
         /* ---- TOP BAR ---- */
         .topbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
+            height: 52px;
             padding: 0 20px;
             border-bottom: 1px solid var(--border);
-            background: rgba(5,5,5,0.95);
-            backdrop-filter: blur(12px);
-            gap: 16px;
         }
 
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-shrink: 0;
-        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
 
         .topbar-left a {
             display: flex;
             align-items: center;
             gap: 10px;
-            text-decoration: none;
             color: var(--text);
-        }
-
-        .topbar-left img { height: 24px; width: auto; }
-
-        .topbar-left .wordmark {
+            text-decoration: none;
             font-size: 0.95rem;
             font-weight: 700;
             letter-spacing: -0.02em;
         }
 
-        .topbar-divider {
-            width: 1px;
-            height: 18px;
-            background: var(--border);
-        }
+        /* logo.svg declares 680×160 but its viewBox is square */
+        .topbar-left img { height: 24px; width: 24px; }
 
-        .topbar-title {
-            font-size: 0.85rem;
-            color: var(--muted);
-            font-weight: 500;
-        }
+        .topbar-divider { width: 1px; height: 18px; background: var(--border); }
 
-        .topbar-tabs {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .topbar-title { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
 
-        .topbar-tab {
-            padding: 5px 10px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-            color: var(--muted);
-            font-size: 0.8rem;
-            font-weight: 500;
-            text-decoration: none;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .topbar-tab:hover { color: var(--text); }
-
-        .topbar-tab[aria-current="page"] {
-            color: var(--text);
-            border-color: var(--border);
-            background: var(--bg-card);
-        }
-
-        .topbar-center {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.8rem;
-            color: var(--muted);
-            font-family: var(--mono);
-        }
-
-        .step {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .step-num {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: rgba(59,130,246,0.15);
-            border: 1px solid rgba(59,130,246,0.4);
-            color: var(--accent);
-            font-size: 0.65rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .step-arrow {
-            color: var(--border);
-            font-size: 0.75rem;
-            margin: 0 2px;
-        }
-
-        .topbar-right {
-            flex-shrink: 0;
-        }
-
-        .btn-reload {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
+        .btn-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
             border: 1px solid var(--border);
             background: transparent;
             color: var(--muted);
-            font-size: 0.8rem;
             cursor: pointer;
-            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+
+        /* ---- CONTENT ---- */
+        main {
+            flex: 1;
+            width: 100%;
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 56px 20px 48px;
+        }
+
+        .intro { margin-bottom: 36px; }
+
+        .eyebrow {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin-top: 8px;
+            font-size: clamp(2rem, 5vw, 2.75rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+        }
+
+        .intro p {
+            margin-top: 12px;
+            max-width: 58ch;
+            color: var(--muted);
+        }
+
+        .games {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .game {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .game:hover { border-color: var(--accent); }
+
+        .game-art {
+            display: grid;
+            place-items: center;
+            height: 200px;
+            background: var(--bg-raised);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .game-art svg { height: 150px; width: auto; }
+
+        .game-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            padding: 20px 22px 22px;
+        }
+
+        .game h2 { font-size: 1.35rem; letter-spacing: -0.02em; }
+
+        .game p { color: var(--muted); font-size: 0.95rem; }
+
+        .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .tag {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 9px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: auto;
+            padding-top: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 42px;
+            padding: 0 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
             transition: all 0.2s;
         }
 
-        .btn-reload:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
 
-        /* ---- SPLIT PANES ---- */
-        .panes {
-            display: grid;
-            grid-template-columns: 1fr 4px 1fr;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .pane {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .pane-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            height: 36px;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-card);
-            flex-shrink: 0;
-        }
-
-        .pane-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .pane-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .btn-primary {
             background: var(--accent);
-            box-shadow: 0 0 6px var(--accent-glow);
+            border-color: var(--accent);
+            color: #fff;
         }
 
-        .pane-dot.green { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.3); }
+        .btn-primary:hover { color: #fff; filter: brightness(1.1); }
 
-        .btn-refresh-pane {
-            background: none;
-            border: none;
+        .btn:focus-visible, .btn-icon:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.8rem;
             color: var(--muted);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            transition: color 0.2s;
         }
 
-        .btn-refresh-pane:hover { color: var(--text); }
-
-        .pane iframe {
-            flex: 1;
-            width: 100%;
-            border: none;
-            background: #fff;
-        }
-
-        /* ---- DIVIDER ---- */
-        .divider {
-            background: var(--border);
-            position: relative;
-            cursor: col-resize;
-            transition: background 0.2s;
-        }
-
-        .divider:hover { background: var(--accent); }
-
-        .divider::after {
-            content: '⋮';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: var(--muted);
-            font-size: 12px;
-            line-height: 1;
-            letter-spacing: -2px;
-            pointer-events: none;
-        }
+        footer a { color: inherit; }
+        footer a:hover { color: var(--text); }
 
         /* ---- MOBILE ---- */
         @media (max-width: 700px) {
-            .layout { grid-template-rows: 48px 1fr; }
-
-            .panes {
-                grid-template-columns: 1fr;
-                grid-template-rows: 1fr 4px 1fr;
-            }
-
-            .divider { cursor: row-resize; }
-            .divider::after { content: '···'; }
-
-            .topbar { padding: 0 12px; }
-            .topbar-center { display: none; }
-            .topbar-left .wordmark { display: none; }
-            .topbar-title, .topbar-divider { display: none; }
-            .topbar-tab { padding: 5px 8px; }
-            .btn-reload-label { display: none; }
-
-            .pane-header { height: 30px; }
-
-            .btn-reload { padding: 5px 10px; font-size: 0.75rem; }
+            .topbar { height: 48px; padding: 0 16px; }
+            main { padding: 32px 16px 36px; }
+            .games { grid-template-columns: 1fr; gap: 16px; }
+            .game-art { height: 160px; }
+            .game-art svg { height: 120px; }
+            .actions .btn { flex: 1; }
         }
     </style>
 </head>
 <body>
 
-<div class="layout">
+<header class="topbar">
+    <div class="topbar-left">
+        <a href="../index.html">
+            <img src="../assets/logo.svg" alt="">
+            <span>AIxKer</span>
+        </a>
+        <div class="topbar-divider"></div>
+        <span class="topbar-title">Playground</span>
+    </div>
+    <button id="theme-toggle" class="btn-icon" type="button"></button>
+</header>
 
-    <!-- TOP BAR -->
-    <div class="topbar">
-        <div class="topbar-left">
-            <a href="../index.html">
-                <img src="../assets/logo.svg" alt="AIxKer">
-                <span class="wordmark">AIxKer</span>
-            </a>
-            <div class="topbar-divider"></div>
-            <span class="topbar-title">Playground</span>
-            <nav class="topbar-tabs" aria-label="Playground demos">
-                <a class="topbar-tab" href="./" aria-current="page">Dots &amp; Boxes</a>
-                <a class="topbar-tab" href="quiz/host.html">Quiz Rush</a>
-            </nav>
-        </div>
+<main>
+    <div class="intro">
+        <div class="eyebrow">Playground</div>
+        <h1>Pick a game</h1>
+        <p>Small multiplayer games built on PipesHub. Every move travels through the hub as a message between units, so you can watch it work.</p>
+    </div>
 
-        <div class="topbar-center">
-            <div class="step">
-                <span class="step-num">1</span>
-                <span>Copy your ID from Player A</span>
-            </div>
-            <span class="step-arrow">→</span>
-            <div class="step">
-                <span class="step-num">2</span>
-                <span>Paste into Player B's opponent field</span>
-            </div>
-            <span class="step-arrow">→</span>
-            <div class="step">
-                <span class="step-num">3</span>
-                <span>Hit Challenge</span>
-            </div>
-        </div>
+    <div class="games">
 
-        <div class="topbar-right">
-            <button class="btn-reload" onclick="reloadAll()" title="Reload both players" aria-label="Reload both players">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+        <article class="game">
+            <div class="game-art" aria-hidden="true">
+                <svg viewBox="0 0 160 160">
+                    <!-- a 4×4 dot grid with a few lines drawn and one box closed -->
+                    <rect x="20" y="20" width="40" height="40" fill="var(--line-a)" opacity="0.18"/>
+                    <g stroke-width="5" stroke-linecap="round">
+                        <line x1="20" y1="20" x2="60" y2="20" stroke="var(--line-a)"/>
+                        <line x1="20" y1="20" x2="20" y2="60" stroke="var(--line-b)"/>
+                        <line x1="60" y1="20" x2="60" y2="60" stroke="var(--line-a)"/>
+                        <line x1="20" y1="60" x2="60" y2="60" stroke="var(--line-a)"/>
+                        <line x1="60" y1="20" x2="100" y2="20" stroke="var(--line-b)"/>
+                        <line x1="100" y1="60" x2="140" y2="60" stroke="var(--line-a)"/>
+                        <line x1="100" y1="100" x2="100" y2="140" stroke="var(--line-b)"/>
+                        <line x1="20" y1="100" x2="60" y2="100" stroke="var(--line-b)"/>
+                    </g>
+                    <g fill="var(--dot)">
+                        <circle cx="20" cy="20" r="5"/><circle cx="60" cy="20" r="5"/><circle cx="100" cy="20" r="5"/><circle cx="140" cy="20" r="5"/>
+                        <circle cx="20" cy="60" r="5"/><circle cx="60" cy="60" r="5"/><circle cx="100" cy="60" r="5"/><circle cx="140" cy="60" r="5"/>
+                        <circle cx="20" cy="100" r="5"/><circle cx="60" cy="100" r="5"/><circle cx="100" cy="100" r="5"/><circle cx="140" cy="100" r="5"/>
+                        <circle cx="20" cy="140" r="5"/><circle cx="60" cy="140" r="5"/><circle cx="100" cy="140" r="5"/><circle cx="140" cy="140" r="5"/>
+                    </g>
                 </svg>
-                <span class="btn-reload-label">Reload Both</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- SPLIT PANES -->
-    <div class="panes" id="panes">
-
-        <div class="pane" id="pane-a">
-            <div class="pane-header">
-                <div class="pane-label">
-                    <div class="pane-dot"></div>
-                    Player A
-                </div>
-                <button class="btn-refresh-pane" onclick="reloadPane('frame-a')" title="Reload">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
-                    </svg>
-                </button>
             </div>
-            <iframe id="frame-a" src="https://aixker.com/dots-and-boxes/" title="Player A" allow="clipboard-write"></iframe>
-        </div>
-
-        <div class="divider" id="divider"></div>
-
-        <div class="pane" id="pane-b">
-            <div class="pane-header">
-                <div class="pane-label">
-                    <div class="pane-dot green"></div>
-                    Player B
+            <div class="game-body">
+                <h2>Dots &amp; Boxes</h2>
+                <p>Take turns drawing lines between dots. Close a box to score it and move again. Both players open side by side, so you can play yourself.</p>
+                <div class="tags"><span class="tag">2 players</span><span class="tag">turn-based</span></div>
+                <div class="actions">
+                    <a class="btn btn-primary" href="dots-and-boxes/">Play</a>
                 </div>
-                <button class="btn-refresh-pane" onclick="reloadPane('frame-b')" title="Reload">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
-                    </svg>
-                </button>
             </div>
-            <iframe id="frame-b" src="https://aixker.com/dots-and-boxes/" title="Player B" allow="clipboard-write"></iframe>
-        </div>
+        </article>
+
+        <article class="game">
+            <div class="game-art" aria-hidden="true">
+                <svg viewBox="0 0 160 160">
+                    <!-- the four answer buttons: colour + shape + letter -->
+                    <g font-family="Inter, sans-serif" font-weight="700" font-size="15">
+                        <rect x="8" y="8" width="68" height="68" rx="10" fill="var(--opt-0)"/>
+                        <polygon points="42,24 58,52 26,52" fill="#fff"/>
+                        <text x="42" y="68" text-anchor="middle" fill="#fff">A</text>
+
+                        <rect x="84" y="8" width="68" height="68" rx="10" fill="var(--opt-1)"/>
+                        <polygon points="118,22 134,38 118,54 102,38" fill="#fff"/>
+                        <text x="118" y="68" text-anchor="middle" fill="#fff">B</text>
+
+                        <rect x="8" y="84" width="68" height="68" rx="10" fill="var(--opt-2)"/>
+                        <circle cx="42" cy="114" r="15" fill="#1c1300"/>
+                        <text x="42" y="146" text-anchor="middle" fill="#1c1300">C</text>
+
+                        <rect x="84" y="84" width="68" height="68" rx="10" fill="var(--opt-3)"/>
+                        <rect x="104" y="100" width="28" height="28" fill="#fff"/>
+                        <text x="118" y="146" text-anchor="middle" fill="#fff">D</text>
+                    </g>
+                </svg>
+            </div>
+            <div class="game-body">
+                <h2>Quiz Rush</h2>
+                <p>A live quiz for a room. The host puts a PIN and QR code on the big screen; players join from their phones and race the clock.</p>
+                <div class="tags"><span class="tag">host + many players</span><span class="tag">real-time</span></div>
+                <div class="actions">
+                    <a class="btn btn-primary" href="quiz/host.html">Host a game</a>
+                    <a class="btn" href="quiz/">Join with a PIN</a>
+                </div>
+            </div>
+        </article>
 
     </div>
+</main>
 
-</div>
+<footer>
+    Runs on <a href="https://github.com/ali-heidari/PipesHub" target="_blank" rel="noopener noreferrer">PipesHub</a>
+    and <a href="https://github.com/ali-heidari/Aixker-Agent" target="_blank" rel="noopener noreferrer">Aixker-Agent</a>.
+</footer>
 
 <script>
-    function reloadPane(id) {
-        const frame = document.getElementById(id);
-        frame.src = frame.src;
-    }
-
-    function reloadAll() {
-        reloadPane('frame-a');
-        reloadPane('frame-b');
-    }
-
-    // Drag-to-resize divider
-    const divider = document.getElementById('divider');
-    const panes   = document.getElementById('panes');
-
-    let dragging = false;
-
-    function isMobileLayout() { return window.innerWidth <= 700; }
-
-    function resizePanes(clientX, clientY) {
-        const rect = panes.getBoundingClientRect();
-        if (isMobileLayout()) {
-            const total = rect.height - 4;
-            const topPx = Math.min(Math.max(clientY - rect.top, 80), total - 80);
-            const fr = topPx / total;
-            panes.style.gridTemplateRows = `${fr}fr 4px ${1 - fr}fr`;
-        } else {
-            const total = rect.width - 4;
-            const leftPx = Math.min(Math.max(clientX - rect.left, 120), total - 120);
-            const fr = leftPx / total;
-            panes.style.gridTemplateColumns = `${fr}fr 4px ${1 - fr}fr`;
+    // Same behaviour and storage key as the landing page's theme toggle.
+    (function () {
+        var html = document.documentElement;
+        var button = document.getElementById('theme-toggle');
+        function sync() {
+            var dark = html.classList.contains('dark');
+            button.textContent = dark ? '☀' : '☾';
+            button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
         }
-    }
-
-    function startDrag() {
-        dragging = true;
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = isMobileLayout() ? 'row-resize' : 'col-resize';
-        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
-    }
-
-    function stopDrag() {
-        if (!dragging) return;
-        dragging = false;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        document.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
-    }
-
-    // Mouse
-    divider.addEventListener('mousedown', startDrag);
-    document.addEventListener('mousemove', e => { if (dragging) resizePanes(e.clientX, e.clientY); });
-    document.addEventListener('mouseup', stopDrag);
-
-    // Touch
-    divider.addEventListener('touchstart', e => { startDrag(); e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove', e => {
-        if (!dragging) return;
-        resizePanes(e.touches[0].clientX, e.touches[0].clientY);
-        e.preventDefault();
-    }, { passive: false });
-    document.addEventListener('touchend', stopDrag);
+        button.addEventListener('click', function () {
+            var toLight = html.classList.contains('dark');
+            html.classList.replace(toLight ? 'dark' : 'light', toLight ? 'light' : 'dark');
+            try { localStorage.setItem('theme', toLight ? 'light' : 'dark'); } catch (e) {}
+            sync();
+        });
+        sync();
+    })();
 </script>
 
 </body>
