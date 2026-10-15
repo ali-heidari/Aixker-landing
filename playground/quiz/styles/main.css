@@ -556,7 +556,7 @@ body.host h1 { font-size: clamp(1.6rem, 2.6vw, 2.4rem); }
   position: fixed;
   right: 16px;
   bottom: 16px;
-  width: 300px;
+  width: 340px;
   padding: 12px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border);
