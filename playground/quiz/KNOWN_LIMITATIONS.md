@@ -95,3 +95,12 @@ The JWT has no `exp`. A leaked token works until `JWT_SECRET` changes.
 - **Keep the host tab in the foreground.** Browsers slow down timers and stop
   animation frames in background tabs, which delays the host's sends and
   screen updates.
+- **ANSWER ack time comes from the players.** The host cannot see when its
+  reply reaches a phone, so each player sends the round trip of its previous
+  ANSWER inside the next one. The number lags by one question, and a player
+  could send a fake value. It is for the metrics panel only, never scoring.
+- **"Seen in last 30 s" is not "connected".** The host has no view of player
+  sockets; it counts players it heard from (JOIN, ANSWER or a PING reply).
+- **After a hub restart, players need a few seconds.** Socket.io retries with
+  1–5 s of randomized backoff, then the player rejoins. A question that ends
+  during that time counts as unanswered for them.
