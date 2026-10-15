@@ -47,6 +47,7 @@
       <span class="title">Host</span>
     </div>
     <div class="topbar-right">
+      <span class="conn-hint muted mono" title="Press M for metrics">M = metrics</span>
       <span id="conn" class="conn" data-state="idle">offline</span>
       <button id="theme-toggle" class="btn-icon" type="button"></button>
     </div>
@@ -147,6 +148,11 @@
     </section>
 
   </main>
+
+  <aside id="metrics" aria-label="Host metrics" hidden>
+    <h3>Metrics · press M to hide</h3>
+    <dl id="metrics-list"></dl>
+  </aside>
 
   <div id="announcer" class="sr-only" aria-live="polite"></div>
   <div id="toast" role="status" aria-live="polite" hidden></div>

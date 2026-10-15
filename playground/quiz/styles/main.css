@@ -108,6 +108,8 @@ button { font: inherit; color: inherit; }
 .conn[data-state="disconnected"]::before,
 .conn[data-state="error"]::before        { background: var(--bad); }
 
+.conn-hint { font-size: 0.7rem; }
+
 .btn-icon {
   width: 34px;
   height: 34px;
@@ -198,6 +200,7 @@ input.pin { font-family: var(--mono); font-size: 1.6rem; letter-spacing: 0.3em; 
 .btn-big { font-size: 1.15rem; padding: 14px 28px; }
 
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.row-center { justify-content: center; }
 
 .errors {
   color: var(--bad);
@@ -572,5 +575,5 @@ body.host h1 { font-size: clamp(1.6rem, 2.6vw, 2.4rem); }
 @media (max-width: 720px) {
   .lobby { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .host-options { grid-template-columns: 1fr; }
-  .topbar .title { display: none; }
+  .topbar .title, .conn-hint { display: none; }
 }

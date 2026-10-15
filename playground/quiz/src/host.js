@@ -5,6 +5,8 @@ import * as game from './game.js'
 import * as ui   from './ui.js'
 import { parseQuiz } from './questions.js'
 import { createPipe, fetchToken } from './pipes.js'
+import { configureFanout, fanout } from './fanout.js'
+import { createRate, createSamples } from './metrics.js'
 
 const HUB_URL  = window.__PIPESHUB_URL__
 const AUTH_URL = window.__PIPESHUB_AUTH_URL__
@@ -13,6 +15,12 @@ const LOBBY_UPDATE_MS = 2_000   // LOBBY count goes out at most this often
 const AUTO_REVEAL_MS  = 5_000   // auto-advance: reveal → leaderboard
 const AUTO_NEXT_MS    = 5_000   // auto-advance: leaderboard → next question
 const CLOUD_SIZE      = 50
+
+const PING_INTERVAL_MS = 10_000
+const PING_SAMPLE      = 50       // never ping everyone
+const PING_TIMEOUT_MS  = 5_000
+const SEEN_WINDOW_MS   = 30_000   // "seen recently" in the metrics panel
+const METRICS_MS       = 500
 
 const params = new URLSearchParams(location.search)
 
@@ -41,6 +49,20 @@ let tickTimer      = null
 let lobbyTimer     = null
 let lobbyCountSent = -1
 let renderQueued   = false
+let sendChain      = Promise.resolve()   // keeps fan-outs in order
+
+// Metrics (panel toggled with M)
+const lastSeen   = new Map()            // unitName → performance.now() of last message
+const joinRate   = createRate()
+const answerRate = createRate()
+const ackMs      = createSamples()      // ANSWER round trips reported by players
+const pingMs     = createSamples()
+let pingSeq      = 0
+let pingTimeouts = 0
+let pingTimer    = null
+let metricsTimer = null
+let lastFanout   = null
+let fanoutFailed = 0
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +78,7 @@ const $hqSeconds   = ui.$('hq-seconds')
 const $hqTimer     = ui.$('hq-timer')
 const $hqAnswered  = ui.$('hq-answered')
 const $hqEligible  = ui.$('hq-eligible')
+const $metrics     = ui.$('metrics')
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +108,12 @@ function boot() {
   for (const btn of document.querySelectorAll('.end-btn')) {
     btn.addEventListener('click', () => { if (confirm('End the game for everyone?')) finish() })
   }
+
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() !== 'm' || e.ctrlKey || e.metaKey || e.altKey) return
+    if (e.target.closest?.('input, textarea')) return
+    toggleMetrics()
+  })
 
   window.addEventListener('beforeunload', e => {
     if (state && state.phase !== game.PHASE.END) e.preventDefault()
@@ -139,10 +168,16 @@ async function openLobby() {
     return
   }
 
+  configureFanout({
+    send:   sendOne,
+    onDone: r => { lastFanout = r; fanoutFailed += r.failed },
+  })
+
   state = game.createGame(quiz)
   $setupStatus.textContent = ''
   renderLobby()
   lobbyTimer = setInterval(sendLobbyCount, LOBBY_UPDATE_MS)
+  pingTimer  = setInterval(pingSample, PING_INTERVAL_MS)
   ui.showScreen('lobby')
 }
 
@@ -162,8 +197,13 @@ function onMessage({ operation, input, senderId, reply }) {
 
 function onStatus(status) {
   const labels = { connecting: 'connecting', ready: 'live', disconnected: 'offline', error: 'offline' }
+  const was = $conn.dataset.state
   $conn.dataset.state = status
   $conn.textContent   = labels[status] ?? status
+  if (status === 'disconnected') ui.showToast('Lost the connection to PipesHub. Reconnecting…', 5000)
+  if (status === 'ready' && (was === 'disconnected' || was === 'error' || was === 'connecting') && state) {
+    ui.showToast('Reconnected.')
+  }
 }
 
 function handleJoin(unitName, input, reply) {
@@ -171,10 +211,14 @@ function handleJoin(unitName, input, reply) {
     reply?.({ ok: false, reason: 'BAD_UNIT' })
     return
   }
+  const now = performance.now()
+  joinRate.hit(now)
+  lastSeen.set(unitName, now)
+
   const existing = players.get(unitName) ?? null
   const nick     = game.validateNickname(input.nickname)
   const taken    = nick.ok && nicknames.has(game.nicknameKey(nick.nickname))
-  const res      = game.joinPlayer(state, existing, { unitName, nickname: input.nickname }, taken, performance.now())
+  const res      = game.joinPlayer(state, existing, { unitName, nickname: input.nickname }, taken, now)
 
   if (!res.ok) {
     reply?.({ ok: false, reason: res.reason })
@@ -191,8 +235,15 @@ function handleJoin(unitName, input, reply) {
 }
 
 function handleAnswer(unitName, input, reply) {
+  const now    = performance.now()
   const player = players.get(unitName)
-  const result = game.scoreAnswer(state, player, input, answers.has(unitName), performance.now())
+  const result = game.scoreAnswer(state, player, input, answers.has(unitName), now)
+
+  answerRate.hit(now)
+  if (player) lastSeen.set(unitName, now)
+  // The player's own measurement of its previous ANSWER round trip.
+  if (Number.isFinite(input.lastAckMs) && input.lastAckMs >= 0 && input.lastAckMs < 120_000) ackMs.add(input.lastAckMs)
+
   if (result.accepted) answers.set(unitName, result)
   reply?.({ accepted: result.accepted, late: result.late })
 
@@ -277,6 +328,7 @@ function finish() {
   clearTimeout(autoTimer)
   clearInterval(tickTimer)
   clearInterval(lobbyTimer)
+  clearInterval(pingTimer)
   state = game.endGame(state)
   rerank()
 
@@ -299,10 +351,16 @@ function rerank() {
 
 // ── Outbound ─────────────────────────────────────────────────────────────────
 
+/** Fan out in order: a player never gets LEADERBOARD after the next QUESTION. */
 function sendEach(units, operation, inputFn) {
-  for (const unit of units) {
-    if (pipe.request(unit, operation, inputFn(unit))) countSent(unit, operation)
-  }
+  sendChain = sendChain.then(() => fanout(units, operation, inputFn)).catch(err => console.error(err))
+  return sendChain
+}
+
+function sendOne(unit, operation, input) {
+  const ok = pipe.request(unit, operation, input)
+  if (ok) countSent(unit, operation)
+  return ok
 }
 
 function sendLobbyCount() {
@@ -310,6 +368,35 @@ function sendLobbyCount() {
   lobbyCountSent = players.size
   const input = { playerCount: players.size }
   sendEach([...players.keys()], 'LOBBY', () => input)
+}
+
+// ── PING sampling ────────────────────────────────────────────────────────────
+
+/** Ping up to PING_SAMPLE random players and record the round trips. */
+function pingSample() {
+  if (!pipe?.isReady() || !players.size) return
+  for (const unit of sample([...players.keys()], PING_SAMPLE)) {
+    const seq = ++pingSeq
+    const t0  = performance.now()
+    pipe.ask(unit, 'PING', { seq }, { timeoutMs: PING_TIMEOUT_MS })
+      .then(res => {
+        if (res?.seq !== seq) return
+        const now = performance.now()
+        pingMs.add(now - t0)
+        lastSeen.set(unit, now)
+      })
+      .catch(err => { if (err?.code === 'TIMEOUT') pingTimeouts++ })
+  }
+}
+
+/** k random items (partial Fisher–Yates). */
+function sample(items, k) {
+  const n = Math.min(k, items.length)
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(Math.random() * (items.length - i))
+    ;[items[i], items[j]] = [items[j], items[i]]
+  }
+  return items.slice(0, n)
 }
 
 function countSent(unit, operation) {
@@ -407,5 +494,63 @@ function renderEnd() {
     ui.el('span', { class: 'mono' }, p ? ui.formatScore(p.score) : ''))))
   ui.renderTopList(ui.$('end-list'), top10)
 }
+
+// ── Metrics panel ────────────────────────────────────────────────────────────
+
+function toggleMetrics() {
+  $metrics.hidden = !$metrics.hidden
+  clearInterval(metricsTimer)
+  if (!$metrics.hidden) {
+    renderMetrics()
+    metricsTimer = setInterval(renderMetrics, METRICS_MS)
+  }
+}
+
+/** Snapshot of the host's numbers. Also used by load tests via window.__quizHost. */
+function metricsSnapshot() {
+  const now = performance.now()
+  let seen = 0
+  for (const t of lastSeen.values()) if (now - t <= SEEN_WINDOW_MS) seen++
+  return {
+    players:       players.size,
+    seenRecently:  seen,
+    joinsPerSec:   joinRate.perSecond(now),
+    answersPerSec: answerRate.perSecond(now),
+    ackP50:        ackMs.p(50),
+    ackP95:        ackMs.p(95),
+    ackSamples:    ackMs.total,
+    pingP50:       pingMs.p(50),
+    pingP95:       pingMs.p(95),
+    pingSamples:   pingMs.total,
+    pingTimeouts,
+    lastFanout,
+    fanoutFailed,
+    hubReady:      !!pipe?.isReady(),
+  }
+}
+
+function renderMetrics() {
+  const m  = metricsSnapshot()
+  const ms = v => (v === null ? '–' : `${Math.round(v)} ms`)
+  const f  = m.lastFanout
+  const rows = [
+    ['Hub',                 m.hubReady ? 'connected' : 'offline'],
+    ['Players joined',      ui.formatScore(m.players)],
+    ['Seen in last 30 s',   ui.formatScore(m.seenRecently)],
+    ['Joins / s',           m.joinsPerSec.toFixed(0)],
+    ['Answers / s',         m.answersPerSec.toFixed(0)],
+    ['ANSWER ack p50',      ms(m.ackP50)],
+    ['ANSWER ack p95',      ms(m.ackP95)],
+    ['PING rtt p50',        ms(m.pingP50)],
+    ['PING rtt p95',        ms(m.pingP95)],
+    ['PING timeouts',       `${m.pingTimeouts} / ${m.pingSamples + m.pingTimeouts}`],
+    ['Last fan-out',        f ? `${f.operation} × ${f.sent}` : '–'],
+    ['Fan-out time',        f ? `${f.durationMs.toFixed(1)} ms (${f.batches} batch${f.batches === 1 ? '' : 'es'})` : '–'],
+    ['Sends while offline', String(m.fanoutFailed)],
+  ]
+  ui.$('metrics-list').replaceChildren(...rows.flatMap(([k, v]) => [ui.el('dt', {}, k), ui.el('dd', {}, v)]))
+}
+
+window.__quizHost = { metrics: metricsSnapshot }
 
 boot()
