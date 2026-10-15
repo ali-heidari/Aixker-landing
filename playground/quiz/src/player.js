@@ -1,12 +1,16 @@
 import * as game from './game.js'
-import * as ui   from './ui.js'
+import * as ui    from './ui.js'
+import * as store from './store.js'
 import { createPipe, fetchToken, randomId } from './pipes.js'
 
 const HUB_URL  = window.__PIPESHUB_URL__
 const AUTH_URL = window.__PIPESHUB_AUTH_URL__
 
 const JOIN_TIMEOUT_MS   = 10_000
+const REJOIN_TIMEOUT_MS = 4_000    // short, so a host that is itself reconnecting gets asked again soon
 const ANSWER_TIMEOUT_MS = 8_000
+const REJOIN_DELAYS_MS  = [0, 1_000, 2_000, 4_000, 8_000, 15_000]   // then 15 s each
+const REJOIN_GIVE_UP_MS = 90_000
 
 const JOIN_ERRORS = {
   NICKNAME_TAKEN:    'That nickname is taken in this game. Pick another.',
@@ -26,6 +30,8 @@ let pipe      = null
 let pin       = null
 let hostUnit  = null
 let nickname  = null
+let joined    = false     // true once the host accepted us
+let rejoining = false
 
 let question     = null   // last QUESTION input
 let answeredQid  = null   // qid this player answered (or tried to)
@@ -33,6 +39,7 @@ let pickedOption = null
 let lastAckMs    = null   // previous ANSWER round trip, reported to the host
 let lastRank     = null
 let lastTotal    = 0
+let lastIndex    = -1     // highest question index shown, to drop stale QUESTIONs
 let timer        = null
 let onHubNotice  = null
 
@@ -62,7 +69,19 @@ function boot() {
   if (pinParam && /^\d{6}$/.test(pinParam)) $pin.value = pinParam
 
   $joinForm.addEventListener('submit', onJoinSubmit)
-  ui.$('play-again').addEventListener('click', () => { location.href = location.pathname })
+  ui.$('play-again').addEventListener('click', () => {
+    store.clearSession()
+    location.href = location.pathname
+  })
+  ui.$('overlay-leave').addEventListener('click', leaveGame)
+  ui.$('overlay-retry').addEventListener('click', () => rejoin())
+
+  // A refresh (or a reopened tab) rejoins the same game as the same unit.
+  const saved = store.loadSession()
+  if (saved && (!pinParam || pinParam === saved.pin)) {
+    resume(saved)
+    return
+  }
 
   ui.showScreen('join')
   ;($pin.value ? $nickname : $pin).focus()
@@ -86,18 +105,13 @@ async function onJoinSubmit(e) {
   const unitName = `quiz-p-${pin}-${randomId(12)}`
 
   try {
-    pipe = createPipe({
-      hubUrl:   HUB_URL,
-      unitName,
-      getToken: () => fetchToken(AUTH_URL, unitName),
-      onMessage,
-      onStatus,
-      onNotice: v => onHubNotice?.(v),
-    })
+    pipe = openPipe(unitName, null)
     await pipe.connect()
     setJoinStatus('Joining…')
     const res = await sendJoin(false)
     if (!res?.ok) throw { code: res?.reason }
+    joined = true
+    store.saveSession({ pin, unitName, nickname, token: tokenCache })
     applyState(res.state)
   } catch (err) {
     setJoinStatus(JOIN_ERRORS[err?.code] ?? 'Could not join. Try again.', true)
@@ -106,6 +120,120 @@ async function onJoinSubmit(e) {
   } finally {
     $joinBtn.disabled = false
   }
+}
+
+let tokenCache = null
+
+function openPipe(unitName, token) {
+  tokenCache = token
+  return createPipe({
+    hubUrl:   HUB_URL,
+    unitName,
+    token,
+    getToken: async () => {
+      tokenCache = await fetchToken(AUTH_URL, unitName)
+      if (joined) store.saveSession({ pin, unitName, nickname, token: tokenCache })
+      return tokenCache
+    },
+    onMessage,
+    onStatus,
+    onNotice: v => onHubNotice?.(v),
+  })
+}
+
+// ── Rejoin ───────────────────────────────────────────────────────────────────
+
+/** After a refresh: reconnect with the saved unit name and ask to rejoin. */
+async function resume(saved) {
+  pin      = saved.pin
+  hostUnit = `quiz-host-${pin}`
+  nickname = saved.nickname
+  joined   = true
+  showOverlay('Rejoining…', 'Your score is safe. Hang on.')
+  pipe = openPipe(saved.unitName, saved.token)
+  rejoin()
+}
+
+/**
+ * Send JOIN { rejoin: true } until the host answers, backing off between
+ * tries. Socket.io already reconnects the socket with its own backoff; this
+ * covers a host that is slow or briefly away.
+ */
+async function rejoin() {
+  if (rejoining) return
+  rejoining = true
+  const started = performance.now()
+  showOverlay('Reconnecting…', 'Your score is safe. Hang on.')
+
+  for (let attempt = 0; ; attempt++) {
+    await sleepUntilReady(REJOIN_DELAYS_MS[Math.min(attempt, REJOIN_DELAYS_MS.length - 1)])
+    if (!pipe) break
+    if (!pipe.isReady()) {
+      try { await pipe.connect() } catch { /* not connected yet; keep trying */ }
+    }
+    if (pipe.isReady()) {
+      try {
+        const res = await sendJoin(true)
+        if (res?.ok) {
+          rejoining = false
+          hideOverlay()
+          applyState(res.state)
+          return
+        }
+        rejoining = false
+        endSession(JOIN_ERRORS[res?.reason] ?? 'The host did not let you back in.')
+        return
+      } catch (err) {
+        if (err?.code === 'NO_GAME') {
+          rejoining = false
+          endSession('That game is no longer running.')
+          return
+        }
+      }
+    }
+    if (performance.now() - started > REJOIN_GIVE_UP_MS) break
+  }
+
+  rejoining = false
+  showOverlay('Cannot reach the host', 'The game may have ended, or the network is down.', true)
+}
+
+function leaveGame() {
+  endSession('')
+}
+
+/** Forget this game and go back to the join screen. */
+function endSession(message) {
+  store.clearSession()
+  joined = false
+  pipe?.close()
+  pipe = null
+  stopTimer()
+  hideOverlay()
+  ui.showScreen('join')
+  setJoinStatus(message, !!message)
+}
+
+function showOverlay(title, text, failed = false) {
+  ui.$('overlay-title').replaceChildren(failed ? '' : ui.el('span', { class: 'spinner' }), ` ${title}`)
+  ui.$('overlay-text').textContent = text
+  ui.$('overlay-actions').hidden = !failed
+  ui.$('overlay').hidden = false
+}
+
+function hideOverlay() {
+  ui.$('overlay').hidden = true
+}
+
+let wakeRejoin = null
+
+/** Wait ms, or less if the socket becomes ready meanwhile. */
+function sleepUntilReady(ms) {
+  return new Promise(resolve => {
+    const done = () => { clearTimeout(t); wakeRejoin = null; resolve() }
+    const t = setTimeout(done, ms)
+    wakeRejoin = done
+  })
 }
 
 /**
@@ -117,7 +245,7 @@ function sendJoin(rejoin) {
   const noGame = new Promise((_, reject) => {
     onHubNotice = v => { if (/no unit found/i.test(String(v))) reject({ code: 'NO_GAME' }) }
   })
-  const ask = pipe.ask(hostUnit, 'JOIN', { nickname, rejoin }, { timeoutMs: JOIN_TIMEOUT_MS })
+  const ask = pipe.ask(hostUnit, 'JOIN', { nickname, rejoin }, { timeoutMs: rejoin ? REJOIN_TIMEOUT_MS : JOIN_TIMEOUT_MS })
   return Promise.race([ask, noGame]).finally(() => { onHubNotice = null })
 }
 
@@ -162,6 +290,14 @@ function onStatus(status) {
   const labels = { connecting: 'connecting', ready: 'live', disconnected: 'offline', error: 'offline' }
   $conn.dataset.state = status
   $conn.textContent   = labels[status] ?? status
+  if (!joined) return
+  if (status === 'disconnected') showOverlay('Reconnecting…', 'Your score is safe. Hang on.')
+  // A fresh socket is a fresh registration: tell the host we are back and
+  // get the current state, since we may have missed messages.
+  if (status === 'ready') {
+    if (rejoining) wakeRejoin?.()
+    else rejoin()
+  }
 }
 
 // ── Screens ──────────────────────────────────────────────────────────────────
@@ -175,6 +311,8 @@ function showWaiting(playerCount, text) {
 }
 
 function showQuestion(q, alreadyAnswered) {
+  if (q.index < lastIndex || (q.index === lastIndex && question?.qid === q.qid && !alreadyAnswered)) return
+  lastIndex    = q.index
   question     = q
   answeredQid  = alreadyAnswered ? q.qid : null
   pickedOption = null
