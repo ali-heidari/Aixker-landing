@@ -1,0 +1,6 @@
+coordinator/.venv/
+coordinator/out/
+__pycache__/
+.pytest_cache/
+bots/node_modules/
+bots/results/
