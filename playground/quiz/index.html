@@ -22,13 +22,19 @@
     })()
   </script>
   <script>
-    // PipesHub endpoints. Pages served from localhost or a private network
-    // talk to a hub on the same host, and may override it with ?hub= / ?auth=.
+    // PipesHub endpoints: the same hub as Dots and Boxes. For testing, a page
+    // served from localhost or a private network may use another hub:
+    // ?hub=local for the hub on this host, or ?hub=<socket url>&auth=<auth url>.
     (function () {
       var q = new URLSearchParams(location.search)
       var local = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)
-      window.__PIPESHUB_URL__      = local ? (q.get('hub')  || 'http://' + location.hostname + ':3000')  : 'https://playground.aixker.com:3000'
-      window.__PIPESHUB_AUTH_URL__ = local ? (q.get('auth') || 'http://' + location.hostname + ':16916') : 'https://playground.aixker.com'
+      var hub = local ? q.get('hub') : null
+      window.__PIPESHUB_URL__      = 'https://playground.aixker.com:3000'
+      window.__PIPESHUB_AUTH_URL__ = 'https://playground.aixker.com'
+      if (hub) {
+        window.__PIPESHUB_URL__      = hub === 'local' ? 'http://' + location.hostname + ':3000' : hub
+        window.__PIPESHUB_AUTH_URL__ = q.get('auth') || 'http://' + location.hostname + ':16916'
+      }
     })()
   </script>
 </head>

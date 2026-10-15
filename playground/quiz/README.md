@@ -56,21 +56,23 @@ You need Node 20.19 or newer, Redis, and a PipesHub checkout.
    python3 -m http.server 8000
    ```
 
-4. **Open the host:** <http://localhost:8000/playground/quiz/host.html>.
+4. **Open the host:** <http://localhost:8000/playground/quiz/host.html?hub=local>.
    Load a quiz (*Use the sample*, a `.json` file, or pasted JSON), then
    *Open lobby*.
 
 5. **Join as players:** scan the QR code, or open
-   <http://localhost:8000/playground/quiz/> in other tabs and type the PIN.
+   <http://localhost:8000/playground/quiz/?hub=local> in other tabs and type
+   the PIN.
    To join from a phone on your network, open the host page through your
    machine's LAN IP instead of `localhost`.
 
-When a page is served from `localhost` or a private IP, it talks to the hub on
-the same host (ports 3000 and 16916). Add `?hub=` and `?auth=` to point it at
-another hub, for example
+By default the pages use the same PipesHub as Dots and Boxes: Socket.io at
+`https://playground.aixker.com:3000` and auth at `https://playground.aixker.com`.
+When a page is served from `localhost` or a private IP, `?hub=local` switches
+it to the hub on the same host (ports 3000 and 16916), and `?hub=` with
+`?auth=` points it at any other hub, for example
 `host.html?hub=http://192.168.102.2:3000&auth=http://192.168.102.2:16916`.
-The host passes them on in the join link. On any other host the pages use
-`https://playground.aixker.com:3000` and `https://playground.aixker.com`.
+The host passes these on in the join link. On any other host they are ignored.
 
 Press **M** on the host to show the metrics panel (players, joins and answers
 per second, ANSWER ack and PING round-trip times, last fan-out). Tick
