@@ -68,6 +68,7 @@ export function createPipe(options) {
   let _socket = null
   let _ready  = false
   let _firstReady = null       // resolves connect() on the first HUB_READY
+  let _connectFail = null       // rejects connect() if closed before that
   const _pending = new Map()   // correlationId → { resolve, reject, timer }
 
   async function connect({ timeoutMs = CONNECT_TIMEOUT_MS } = {}) {
@@ -80,7 +81,7 @@ export function createPipe(options) {
       auth:                 { token: _token },
       query:                { name: unitName },
       reconnectionDelay:    1_000,
-      reconnectionDelayMax: 10_000,
+      reconnectionDelayMax: 5_000,
       randomizationFactor:  0.5,
       ...socketOptions,
     })
@@ -92,12 +93,10 @@ export function createPipe(options) {
     _socket.on('connect_error',   _handleConnectError)
 
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        _firstReady = null
-        close()
-        reject({ code: 'CONNECT_TIMEOUT' })
-      }, timeoutMs)
-      _firstReady = () => { clearTimeout(timer); resolve() }
+      const timer = setTimeout(() => _connectFail?.({ code: 'CONNECT_TIMEOUT' }), timeoutMs)
+      const settle = () => { clearTimeout(timer); _firstReady = null; _connectFail = null }
+      _firstReady  = () => { settle(); resolve() }
+      _connectFail = err => { settle(); close(); reject(err) }
     })
   }
 
@@ -139,6 +138,7 @@ export function createPipe(options) {
 
   /** Disconnect and reject every pending ask with { code: 'CLOSED' }. */
   function close() {
+    _connectFail?.({ code: 'CLOSED' })
     _ready = false
     for (const { reject, timer } of _pending.values()) { clearTimeout(timer); reject({ code: 'CLOSED' }) }
     _pending.clear()
@@ -159,7 +159,7 @@ export function createPipe(options) {
     if (data === HUB_READY) {
       _ready = true
       _status('ready')
-      if (_firstReady) { const done = _firstReady; _firstReady = null; done() }
+      _firstReady?.()
       return
     }
     if (!data || typeof data !== 'object') { onNotice?.(data); return }
