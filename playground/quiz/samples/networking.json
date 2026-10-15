@@ -1,0 +1,65 @@
+{
+  "title": "Networking, Linux and eBPF",
+  "questions": [
+    {
+      "text": "Which hook runs before the kernel allocates an sk_buff?",
+      "options": ["XDP", "tc", "netfilter", "socket filter"],
+      "correct": 0,
+      "durationMs": 15000
+    },
+    {
+      "text": "In a TCP three-way handshake, which flag does the client set in the first packet?",
+      "options": ["ACK", "SYN", "SYN-ACK", "FIN"],
+      "correct": 1,
+      "durationMs": 15000
+    },
+    {
+      "text": "Which TCP port does HTTPS use by default?",
+      "options": ["80", "22", "443", "8080"],
+      "correct": 2,
+      "durationMs": 10000
+    },
+    {
+      "text": "True or false: UDP guarantees that datagrams arrive in the order they were sent.",
+      "options": ["True", "False"],
+      "correct": 1,
+      "durationMs": 10000
+    },
+    {
+      "text": "Which command lists listening TCP sockets and the process that owns each one?",
+      "options": ["ip route", "dmesg", "uname -a", "ss -tlnp"],
+      "correct": 3,
+      "durationMs": 20000
+    },
+    {
+      "text": "An L4 load balancer picks a backend using information from which layer?",
+      "options": ["Transport", "Data link", "Application", "Presentation"],
+      "correct": 0,
+      "durationMs": 15000
+    },
+    {
+      "text": "Which eBPF map type gives each CPU its own copy of every value?",
+      "options": ["BPF_MAP_TYPE_HASH", "BPF_MAP_TYPE_RINGBUF", "BPF_MAP_TYPE_PERCPU_ARRAY", "BPF_MAP_TYPE_PROG_ARRAY"],
+      "correct": 2,
+      "durationMs": 20000
+    },
+    {
+      "text": "Which XDP return code drops the packet?",
+      "options": ["XDP_PASS", "XDP_TX", "XDP_REDIRECT", "XDP_DROP"],
+      "correct": 3,
+      "durationMs": 15000
+    },
+    {
+      "text": "What does the eBPF verifier do?",
+      "options": ["Compiles C into eBPF bytecode", "Checks that a program is safe before it loads", "Encrypts the contents of maps"],
+      "correct": 1,
+      "durationMs": 20000
+    },
+    {
+      "text": "Which IPv4 block is a private range from RFC 1918?",
+      "options": ["100.64.0.0/10", "169.254.0.0/16", "172.16.0.0/12", "192.0.2.0/24"],
+      "correct": 2,
+      "durationMs": 15000
+    }
+  ]
+}
