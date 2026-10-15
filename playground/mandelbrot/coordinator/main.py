@@ -58,6 +58,8 @@ async def run(args: argparse.Namespace) -> int:
     jobs_done = 0
 
     def on_message(operation, inp, sender_id, reply):
+        if operation in ("HELLO", "BYE"):
+            log.info("%s from %s %s", operation, sender_id, inp.get("role", ""))
         try:
             res = coord.handle(operation, sender_id, inp)
         except Exception:
@@ -85,6 +87,7 @@ async def run(args: argparse.Namespace) -> int:
             results = [coord.result_bytes(i) for i in range(len(job.tiles))]
             report = await asyncio.to_thread(check_job, job, results)
             report["jobSeconds"] = round(seconds, 2)
+            report["counters"] = dict(coord.counters)
             (out_dir / f"check-{job.id}.json").write_text(json.dumps(report, indent=2))
             log.info("check %s: %d wrong, %d missing of %d tiles (%.1f s)", job.id,
                      report["wrongTiles"], report["missingTiles"], report["tiles"],
@@ -99,6 +102,7 @@ async def run(args: argparse.Namespace) -> int:
     async def flush_loop() -> None:
         last_status = 0.0
         while not stop.is_set():
+            coord.tick()
             for unit, operation, inp in coord.drain():
                 await pipe.request(unit, operation, inp)
             while coord.finished:
@@ -107,8 +111,13 @@ async def run(args: argparse.Namespace) -> int:
             if now - last_status >= STATUS_INTERVAL_S:
                 last_status = now
                 workers = sum(1 for c in coord.contributors.values() if c.role == "worker")
-                log.info("job %s: %d/%d tiles, %d viewers, %d workers", coord.job.id,
-                         coord.done_count, len(coord.job.tiles), len(coord.viewers), workers)
+                k = coord.counters
+                log.info("job %s: %d/%d done, %d leased, %d failed; %d viewers, %d workers; "
+                         "lease %.1f s, expiries %d, retries %d, dup %d, stale %d, invalid %d, "
+                         "backups %d/%d won", coord.job.id, coord.done_count, len(coord.job.tiles),
+                         coord.leased_count(), coord.failed_pending(), len(coord.viewers), workers,
+                         coord.lease_seconds(), k["leaseExpiries"], k["retries"], k["duplicates"],
+                         k["rejectedStale"], k["rejectedInvalid"], k["backupsWon"], k["backupsIssued"])
             await asyncio.sleep(FLUSH_INTERVAL_S)
 
     flusher = asyncio.create_task(flush_loop())

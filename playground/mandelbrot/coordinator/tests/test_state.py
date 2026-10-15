@@ -1,21 +1,8 @@
-import base64
-
 import pytest
 
-from compute import counts_to_bytes, task_counts
 from jobs import make_job
 from state import Config, Coordinator
-
-W1, W2, V1 = "mandel-v-aaaaaaaaaaaa", "mandel-v-bbbbbbbbbbbb", "mandel-v-cccccccccccc"
-
-
-class Clock:
-    def __init__(self):
-        self.t = 1000.0
-
-    def __call__(self):
-        return self.t
-
+from support import V1, W1, W2, Clock, small, submit, worker
 
 @pytest.fixture
 def clock():
@@ -24,25 +11,7 @@ def clock():
 
 @pytest.fixture
 def coord(clock):
-    # 4×4 tiles of 16 px keeps the tests fast
-    return Coordinator(Config(width=64, height=64, tile_size=16), clock=clock)
-
-
-def good_data(task):
-    return base64.b64encode(counts_to_bytes(task_counts(task))).decode()
-
-
-def submit(coord, unit, task, data=None):
-    return coord.handle("SUBMIT", unit, {
-        "jobId": task["jobId"], "tileId": task["tileId"], "leaseId": task["leaseId"],
-        "data": good_data(task) if data is None else data,
-    })
-
-
-def worker(coord, unit=W1, nickname="w"):
-    res = coord.handle("HELLO", unit, {"nickname": nickname, "role": "worker"})
-    assert res["ok"]
-    return res
+    return small(clock)
 
 
 # ── HELLO ───────────────────────────────────────────────────────────────────
