@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Quiz Rush</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script>
+    // Theme: same rule and storage key as the landing page.
+    (function () {
+      var saved = null
+      try { saved = localStorage.getItem('theme') } catch (e) {}
+      if (saved === 'light' || (!saved && !matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.replace('dark', 'light')
+      }
+    })()
+  </script>
+  <script>
+    // PipesHub endpoints. Pages served from localhost or a private network
+    // talk to a hub on the same host, and may override it with ?hub= / ?auth=.
+    (function () {
+      var q = new URLSearchParams(location.search)
+      var local = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)
+      window.__PIPESHUB_URL__      = local ? (q.get('hub')  || 'http://' + location.hostname + ':3000')  : 'https://playground.aixker.com:3000'
+      window.__PIPESHUB_AUTH_URL__ = local ? (q.get('auth') || 'http://' + location.hostname + ':16916') : 'https://playground.aixker.com'
+    })()
+  </script>
+</head>
+<body class="player">
+
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="/assets/logo.svg" alt="" />
+      <span>Quiz Rush</span>
+    </a>
+    <div class="topbar-right">
+      <span id="conn" class="conn" data-state="idle">offline</span>
+      <button id="theme-toggle" class="btn-icon" type="button"></button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 1. Join -->
+    <section data-screen="join" class="center">
+      <h1>Join a quiz</h1>
+      <form id="join-form" class="join-form" novalidate>
+        <label>Game PIN
+          <input id="pin" class="pin" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="off" placeholder="000000" required />
+        </label>
+        <label>Nickname
+          <input id="nickname" type="text" maxlength="20" autocomplete="nickname" autocapitalize="off" spellcheck="false" placeholder="Your name" required />
+        </label>
+        <button id="join-btn" class="btn btn-primary btn-big" type="submit">Join</button>
+        <p id="join-status" class="status-text" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- 2. Waiting -->
+    <section data-screen="waiting" class="center" hidden>
+      <h1>You're in!</h1>
+      <p class="verdict" id="waiting-nick"></p>
+      <p id="waiting-text" class="muted">Waiting for the host to start…</p>
+      <p class="muted"><span id="waiting-count" class="mono">0</span> players</p>
+    </section>
+
+    <!-- 3. Answer -->
+    <section data-screen="question" hidden>
+      <div class="q-meta">
+        <span id="q-index"></span>
+        <span class="seconds" id="q-seconds" aria-live="off"></span>
+      </div>
+      <div class="timer" aria-hidden="true"><span id="q-timer"></span></div>
+      <h2 id="q-text"></h2>
+      <div id="answers" class="answers" role="group" aria-label="Answers"></div>
+      <p id="answer-status" class="status-text" aria-live="polite"></p>
+    </section>
+
+    <!-- 4. Result -->
+    <section data-screen="result" class="center" hidden>
+      <p id="result-verdict" class="verdict"></p>
+      <p id="result-correct" class="muted"></p>
+      <div class="stat-row">
+        <div class="stat card"><div class="v" id="result-points">0</div><div class="k">points</div></div>
+        <div class="stat card"><div class="v" id="result-total">0</div><div class="k">total</div></div>
+        <div class="stat card"><div class="v" id="result-rank">–</div><div class="k">rank</div></div>
+      </div>
+    </section>
+
+    <!-- 4b. Leaderboard between questions -->
+    <section data-screen="leaderboard" hidden>
+      <h2>Leaderboard</h2>
+      <ol id="lb-list" class="top"></ol>
+      <p class="muted center" id="lb-you"></p>
+    </section>
+
+    <!-- 5. End -->
+    <section data-screen="end" class="center" hidden>
+      <h1>Game over</h1>
+      <div class="stat-row">
+        <div class="stat card"><div class="v" id="end-rank">–</div><div class="k">final rank</div></div>
+        <div class="stat card"><div class="v" id="end-total">0</div><div class="k">points</div></div>
+      </div>
+      <ol id="end-list" class="top"></ol>
+      <button id="play-again" class="btn" type="button">Join another game</button>
+    </section>
+
+  </main>
+
+  <div id="announcer" class="sr-only" aria-live="polite"></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <div id="overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title" hidden>
+    <div class="card">
+      <p id="overlay-title"><span class="spinner"></span> Reconnecting…</p>
+      <p id="overlay-text" class="muted">Your score is safe. Hang on.</p>
+    </div>
+  </div>
+
+  <script type="module" src="src/player.js"></script>
+</body>
+</html>

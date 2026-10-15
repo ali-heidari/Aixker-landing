@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz Rush — Host</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script>
+    // Theme: same rule and storage key as the landing page.
+    (function () {
+      var saved = null
+      try { saved = localStorage.getItem('theme') } catch (e) {}
+      if (saved === 'light' || (!saved && !matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.replace('dark', 'light')
+      }
+    })()
+  </script>
+  <script>
+    // PipesHub endpoints. Pages served from localhost or a private network
+    // talk to a hub on the same host, and may override it with ?hub= / ?auth=.
+    (function () {
+      var q = new URLSearchParams(location.search)
+      var local = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)
+      window.__PIPESHUB_URL__      = local ? (q.get('hub')  || 'http://' + location.hostname + ':3000')  : 'https://playground.aixker.com:3000'
+      window.__PIPESHUB_AUTH_URL__ = local ? (q.get('auth') || 'http://' + location.hostname + ':16916') : 'https://playground.aixker.com'
+    })()
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"
+          integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"
+          crossorigin="anonymous"></script>
+</head>
+<body class="host">
+
+  <header class="topbar">
+    <div class="row">
+      <a class="brand" href="../index.html">
+        <img src="/assets/logo.svg" alt="" />
+        <span>Quiz Rush</span>
+      </a>
+      <span class="divider"></span>
+      <span class="title">Host</span>
+    </div>
+    <div class="topbar-right">
+      <span id="conn" class="conn" data-state="idle">offline</span>
+      <button id="theme-toggle" class="btn-icon" type="button"></button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 1. Setup -->
+    <section data-screen="setup">
+      <h1>Host a quiz</h1>
+      <div class="setup-grid">
+        <div class="card">
+          <h2>Sample quiz</h2>
+          <p class="muted">10 questions about networking, Linux and eBPF.</p>
+          <button id="sample-btn" class="btn" type="button">Use the sample</button>
+        </div>
+        <div class="card">
+          <h2>Load a file</h2>
+          <p class="muted">A JSON file with a title and 1–50 questions.</p>
+          <input id="file-input" type="file" accept=".json,application/json" />
+        </div>
+        <div class="card">
+          <h2>Paste JSON</h2>
+          <textarea id="paste" spellcheck="false" placeholder='{ "title": "…", "questions": [ … ] }'></textarea>
+          <button id="paste-btn" class="btn" type="button">Check pasted JSON</button>
+        </div>
+      </div>
+      <ul id="setup-errors" class="errors" aria-live="polite"></ul>
+      <div id="quiz-ready" class="card row" hidden>
+        <p id="quiz-summary" class="grow"></p>
+        <label class="check"><input id="auto-advance" type="checkbox" /> Auto-advance</label>
+        <button id="open-lobby" class="btn btn-primary btn-big" type="button">Open lobby</button>
+      </div>
+      <p id="setup-status" class="status-text" aria-live="polite"></p>
+    </section>
+
+    <!-- 2. Lobby -->
+    <section data-screen="lobby" hidden>
+      <div class="lobby">
+        <div>
+          <p class="join-at">Join at <b id="join-url"></b></p>
+          <p class="muted">Game PIN</p>
+          <p id="pin-big" class="pin-big"></p>
+          <p class="player-count"><span id="player-count">0</span> players</p>
+        </div>
+        <div id="qr" class="qr" role="img" aria-label="QR code for the join link"></div>
+      </div>
+      <div id="nick-cloud" class="nick-cloud" aria-live="off"></div>
+      <div class="host-actions">
+        <button id="start-btn" class="btn btn-primary btn-big" type="button" disabled>Start</button>
+      </div>
+    </section>
+
+    <!-- 3. Question -->
+    <section data-screen="question" hidden>
+      <div class="host-stats">
+        <span id="hq-index"></span>
+        <span id="hq-seconds" class="seconds"></span>
+        <span><span id="hq-answered">0</span> / <span id="hq-eligible">0</span> answered</span>
+      </div>
+      <div class="timer" aria-hidden="true"><span id="hq-timer"></span></div>
+      <p id="hq-text" class="host-question"></p>
+      <div id="hq-options" class="host-options"></div>
+      <div class="host-actions">
+        <button class="btn end-btn" type="button">End game</button>
+        <button id="reveal-btn" class="btn btn-primary" type="button">Reveal now</button>
+      </div>
+    </section>
+
+    <!-- 4. Reveal -->
+    <section data-screen="reveal" hidden>
+      <p id="hr-text" class="host-question"></p>
+      <div id="hr-bars" class="bars"></div>
+      <div class="host-actions">
+        <button class="btn end-btn" type="button">End game</button>
+        <button id="to-leaderboard-btn" class="btn btn-primary btn-big" type="button">Leaderboard</button>
+      </div>
+    </section>
+
+    <!-- 5. Leaderboard -->
+    <section data-screen="leaderboard" hidden>
+      <h1>Leaderboard</h1>
+      <ol id="hl-list" class="top"></ol>
+      <div class="host-actions">
+        <button class="btn end-btn" type="button">End game</button>
+        <button id="next-btn" class="btn btn-primary btn-big" type="button">Next question</button>
+      </div>
+    </section>
+
+    <!-- 6. End -->
+    <section data-screen="end" hidden>
+      <h1 class="text-center">Final results</h1>
+      <div id="podium" class="podium"></div>
+      <ol id="end-list" class="top"></ol>
+      <div class="host-actions">
+        <button id="new-game" class="btn" type="button">New game</button>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="announcer" class="sr-only" aria-live="polite"></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="src/host.js"></script>
+</body>
+</html>
