@@ -201,3 +201,13 @@ test('fetchToken posts the unit name as a form field', async () => {
   assert.equal(seen.init.body, 'name=quiz-p-1')
   await assert.rejects(fetchToken('http://auth', 'x', async () => ({ ok: false, status: 400 })), /auth 400/)
 })
+
+test('fetchToken gives up when the auth server does not answer', async () => {
+  let signal
+  const hang = (url, init) => new Promise((_, reject) => {
+    signal = init.signal
+    init.signal.addEventListener('abort', () => reject(new Error('aborted')))
+  })
+  await assert.rejects(fetchToken('http://auth', 'x', hang, { timeoutMs: 20 }), err => err.code === 'AUTH_TIMEOUT')
+  assert.equal(signal.aborted, true)
+})

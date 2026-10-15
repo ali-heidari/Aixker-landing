@@ -11,6 +11,7 @@
 const SOCKET_IO_URL      = 'https://cdn.socket.io/4.8.3/socket.io.esm.min.js'
 const DEFAULT_TIMEOUT_MS = 10_000
 const CONNECT_TIMEOUT_MS = 15_000
+const AUTH_TIMEOUT_MS    = 10_000
 
 // PipesHub emits `gateway` with 200 once it has looked up the unit. Its
 // `gateway` listener is attached after that lookup, so anything sent before
@@ -29,15 +30,29 @@ export function randomId(length = 12) {
   return id
 }
 
-/** POST /auth with form field `name`. Resolves to the JWT (plain text). */
-export async function fetchToken(authUrl, unitName, fetchFn = globalThis.fetch) {
-  const res = await fetchFn(`${authUrl}/auth`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    `name=${encodeURIComponent(unitName)}`,
-  })
-  if (!res.ok) throw new Error(`auth ${res.status}`)
-  return res.text()
+/**
+ * POST /auth with form field `name`. Resolves to the JWT (plain text).
+ * Rejects with { code: 'AUTH_TIMEOUT' } if the auth server does not answer,
+ * so an unreachable hub fails in seconds instead of the browser's minutes.
+ */
+export async function fetchToken(authUrl, unitName, fetchFn = globalThis.fetch, { timeoutMs = AUTH_TIMEOUT_MS } = {}) {
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), timeoutMs)
+  try {
+    const res = await fetchFn(`${authUrl}/auth`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    `name=${encodeURIComponent(unitName)}`,
+      signal:  abort.signal,
+    })
+    if (!res.ok) throw new Error(`auth ${res.status}`)
+    return await res.text()
+  } catch (err) {
+    if (abort.signal.aborted) throw { code: 'AUTH_TIMEOUT' }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
