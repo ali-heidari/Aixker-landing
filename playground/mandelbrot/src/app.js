@@ -22,12 +22,26 @@ let myId        = null    // contributorId the coordinator gave this tab
 let role        = 'viewer'
 let mine        = 0       // tiles computed by this tab in this job
 let helloTimer  = null
+let leaving     = false   // pagehide sent BYE
 
 // ── Connection ───────────────────────────────────────────────────────────────
 
 async function boot() {
   setupTheme()
   setupContribute()
+  // Give leases back at once instead of letting them run out. Best effort:
+  // a crashed tab sends nothing, and its leases expire instead.
+  addEventListener('pagehide', () => {
+    leaving = true                  // nothing may HELLO us back in after this
+    contributor?.setPaused(true)
+    pipe?.request(COORDINATOR, 'BYE')
+  })
+  addEventListener('pageshow', e => {
+    if (!e.persisted) return       // restored from the back/forward cache
+    leaving = false
+    contributor?.setPaused(false)
+    if (pipe?.isReady()) hello()
+  })
   pipe = createPipe({
     hubUrl:   HUB_URL,
     unitName: unit,
@@ -54,6 +68,7 @@ function onStatus(status) {
 /** Register with the coordinator; repeat until it answers. Resolves to true if it did. */
 async function hello() {
   clearTimeout(helloTimer)
+  if (leaving) return false
   try {
     const res = await pipe.ask(COORDINATOR, 'HELLO',
       { nickname: $('nickname').value, role }, { timeoutMs: HELLO_TIMEOUT_MS })
@@ -140,6 +155,7 @@ async function toggleContribute() {
 }
 
 function onEvent(type, detail) {
+  if (type === 'forgotten') { hello(); return }
   if (type === 'submitted' && detail.accepted && detail.task.jobId === tiles.job?.jobId) {
     mine++
     updateProgress()

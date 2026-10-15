@@ -16,6 +16,8 @@ const RETRY_MS          = 1_000
  *                 'computed'  { task, ms }
  *                 'submitted' { task, accepted, reason, ms }
  *                 'error'     { stage, error }
+ *                 'forgotten' {}  the coordinator does not know this unit as
+ *                                 a worker (e.g. it restarted): HELLO again
  */
 export function createContributor({ pipe, coordinator, threads = 1, makeWorker, onEvent = () => {} }) {
   let pool    = []
@@ -64,6 +66,7 @@ export function createContributor({ pipe, coordinator, threads = 1, makeWorker, 
       }
       if (!running || my !== gen) break
       const tasks = Array.isArray(reply?.tasks) ? reply.tasks : []
+      if (reply?.reason === 'HELLO_FIRST') onEvent('forgotten', {})
       if (!tasks.length) { await nap(reply?.wait ?? RETRY_MS); continue }
       const free = pool.filter(p => !p.busy)   // the pool may have shrunk meanwhile
       tasks.slice(0, free.length).forEach((task, i) => runTask(free[i], task))
