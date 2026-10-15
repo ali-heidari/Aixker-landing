@@ -106,6 +106,33 @@ The JWT has no `exp`. A leaked token works until `JWT_SECRET` changes.
   1–5 s of randomized backoff, then the player rejoins. A question that ends
   during that time counts as unanswered for them.
 
+## Single-node test (Phase 3)
+
+Run on 2026-10-15 against one local PipesHub node (develop `87bbbdd`, plain
+HTTP, local Redis), no Aixker. 1,000 bots from `loadgen/` on the same
+machine, ramp 10 s, answer delay 500–4000 ms, correct rate 0.7, the sample
+quiz, and a real host page in headless Chrome with Auto-advance. The run took
+152.3 s.
+
+| | |
+|---|---|
+| Joined | 1000 / 1000, 0 failed |
+| Connect ms p50 / p95 / p99 | 5.8 / 54.6 / 116.5 (max 146.3) |
+| Join ms p50 / p95 / p99 | 10.2 / 90.8 / 143.6 (max 166.4) |
+| Answers sent / acked / accepted | 10000 / 10000 / 10000, 0 late, 0 timeouts |
+| ANSWER ack ms p50 / p95 / p99 | 4.3 / 9.6 / 19.1 (max 59.3) |
+| QUESTION sent / received / lost | 10000 / 10000 / 0 |
+| REVEAL sent / received / lost | 10000 / 10000 / 0 |
+| Bots that got END | 1000 |
+| Disconnects | 0 |
+| Host peak answers/s | 310 |
+| Host QUESTION fan-out | 80.9 ms in 5 batches (END 99.6 ms) |
+| Host PING round trip p50 / p95 | 34.5 / 120.9 ms, 750 pings, 0 timeouts |
+| Load generator event-loop delay p50 / p99 / max | 1.2 / 2.7 / 48.9 ms |
+
+Bots, hub and browser shared one laptop, so these numbers include that
+machine's contention; they are not a capacity limit of PipesHub.
+
 ## Multi-node test (Phase 4)
 
 Run on 2026-10-15 against PipesHub's own `docker-compose.yml` (develop
