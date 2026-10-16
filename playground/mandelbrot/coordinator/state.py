@@ -22,7 +22,9 @@ and every result from a suspect need a second result from another
 contributor. Equal hashes from two non-suspects are
 accepted. Anything else is judged: the caller computes the tile itself
 (judge_queue → resolve()). Whoever sent a wrong result becomes a suspect, and
-every tile they have in this job is thrown out and computed again.
+every tile they have in this job is thrown out and computed again. A held
+result that gets no second opinion (no other active worker, or none within
+second_opinion_s) is judged too, so a lone worker can still finish.
 """
 
 from __future__ import annotations
@@ -71,6 +73,7 @@ class Config:
     rollover_delay_s: float = 10.0 # time a finished image stays up before the next job
     verify_rate: float = 0.05      # share of tiles computed twice
     probation: int = 3             # a contributor's first results that are always verified
+    second_opinion_s: float = 15.0 # a held result waits this long for another worker, then is judged
     max_workers: int = 200         # active workers; others are told to wait
     max_result_bytes: int = 65_536 # base64 length of one SUBMIT's data
     lease_rate: float = 10.0       # LEASE calls per second per unit …
@@ -187,6 +190,7 @@ def new_counters() -> dict[str, int]:
         "rejectedTooLarge": 0,
         "rateLimited": 0,       # LEASE calls over the per-unit rate
         "workersFull": 0,       # LEASE calls refused at max_workers
+        "soloJudged": 0,        # held results judged because no second opinion came
     }
 
 
@@ -212,6 +216,7 @@ class Coordinator:
         self._accept_times: deque[float] = deque()
         self._pending_tiles: list[dict] = []             # accepted, not yet sent to viewers
         self._revoked: list[int] = []                    # thrown out, not yet told to viewers
+        self._held: set[int] = set()                     # tiles with one held result
         self._rest_until: float | None = None            # set while a finished image is shown
         self._last_prune = 0.0
         self._start_job(first_job)
@@ -361,7 +366,9 @@ class Coordinator:
         self._end_lease(lease)
         ts.candidates.append(Candidate(unit=unit, data_b64=data_b64, sha256=sha, lease=lease, at=now))
         if len(ts.candidates) == 1:
+            self._held.add(tile_id)
             self._requeue_if_orphaned(tile_id, front=True)   # for someone else
+            self._judge_lonely(now)
             return {"accepted": True, "verifying": True}
 
         first, second = ts.candidates[:2]
@@ -374,12 +381,7 @@ class Coordinator:
             self._accept(tile_id, self.contributors[first.unit], first.data_b64, first.sha256, first.lease, now)
             return {"accepted": True}
         # They differ, or a suspect is involved: the coordinator decides.
-        for other in list(ts.active.values()):
-            self._end_lease(other)
-        ts.judging = True
-        ts.queued = False
-        self.judge_queue.append({"jobId": self.job.id, "tileId": tile_id,
-                                 "task": self.job.task(self.job.tiles[tile_id], "judge")})
+        self._send_to_judge(tile_id)
         return {"accepted": True, "verifying": True}
 
     def resolve(self, job_id: str, tile_id: int, truth: bytes) -> None:
@@ -428,6 +430,8 @@ class Coordinator:
         if now - self._last_prune >= 1.0:
             self._last_prune = now
             self._prune_viewers(now)
+        if self._held:
+            self._judge_lonely(now)
         while self._expiry_heap and self._expiry_heap[0][0] <= now:
             _, lease_id = heapq.heappop(self._expiry_heap)
             lease = self.leases.get(lease_id)
@@ -548,6 +552,7 @@ class Coordinator:
         self._expiry_heap: list[tuple[float, str]] = []
         self.judge_queue = []
         self._revoked = []
+        self._held = set()
         self._done_count = 0
         self._job_started = self.clock()
         self._counters_at_start = dict(self.counters)
@@ -693,6 +698,32 @@ class Coordinator:
         self._pending_tiles.append(self._tile_msg(tile_id, ts))
         if self._done_count == len(self.tiles):
             self._finish_job(now)
+
+    def _send_to_judge(self, tile_id: int) -> None:
+        ts = self.tiles[tile_id]
+        for other in list(ts.active.values()):
+            self._end_lease(other)
+        ts.judging = True
+        ts.queued = False
+        self._held.discard(tile_id)
+        self.judge_queue.append({"jobId": self.job.id, "tileId": tile_id,
+                                 "task": self.job.task(self.job.tiles[tile_id], "judge")})
+
+    def _judge_lonely(self, now: float) -> None:
+        """Judge held results that no other worker can or will confirm."""
+        # any worker heard from lately, including one that just said HELLO
+        workers = [c.unit for c in self.contributors.values()
+                   if c.role == "worker" and not c.suspect and now - c.last_seen <= self.config.worker_active_s]
+        for tile_id in list(self._held):
+            ts = self.tiles[tile_id]
+            if ts.done or ts.judging or len(ts.candidates) != 1:
+                self._held.discard(tile_id)
+                continue
+            cand = ts.candidates[0]
+            nobody_else = not any(u != cand.unit for u in workers)
+            if (nobody_else and not ts.active) or now - cand.at >= self.config.second_opinion_s:
+                self.counters["soloJudged"] += 1
+                self._send_to_judge(tile_id)
 
     def _suspect(self, unit: str) -> bool:
         c = self.contributors.get(unit)

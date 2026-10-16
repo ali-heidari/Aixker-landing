@@ -319,3 +319,43 @@ def test_a_cheater_is_caught_on_its_first_result(clock):
     assert c.contributors[W1].suspect
     assert c.contributors[W2].proven == 1 and c.contributors[W1].proven == 0
     assert c.done_count == 1 and c.tiles[t["tileId"]].contributor_id == c.contributors[W2].id
+
+
+# ── No second opinion ───────────────────────────────────────────────────────
+
+def test_a_lone_worker_still_finishes_the_image(clock):
+    c = small(clock, verify_rate=1.0, probation=3)
+    worker(c, W1)
+    while c.done_count < 16:
+        for t in lease(c, W1, 4):
+            assert submit(c, W1, t) == {"accepted": True, "verifying": True}
+        judge_all(c)
+    assert c.counters["soloJudged"] == 16 and c.counters["coordinatorTiles"] == 0
+    assert all(ts.contributor_id == c.contributors[W1].id for ts in c.tiles)
+    assert len(c.finished) == 1
+
+
+def test_held_result_is_judged_when_nobody_confirms_it_in_time(clock):
+    c = small(clock, verify_rate=0.0, probation=0, second_opinion_s=15)
+    worker(c, W1)
+    worker(c, W2)
+    [t] = lease(c, W1)
+    c.tiles[t["tileId"]].verify = True
+    submit(c, W1, t)
+    lease(c, W2)                                       # W2 is active, takes some other tile …
+    clock.advance(14)
+    c.tick()
+    assert not c.tiles[t["tileId"]].judging            # … and could still take this one
+    clock.advance(1)
+    c.tick()
+    assert c.tiles[t["tileId"]].judging and c.counters["soloJudged"] == 1
+
+
+def test_a_lone_cheater_is_caught_by_the_judge(clock):
+    c = small(clock, probation=3)
+    worker(c, W1)
+    [t] = lease(c, W1)
+    submit(c, W1, t, data=bad_data(t))
+    judge_all(c)
+    assert c.contributors[W1].suspect
+    assert c.tiles[t["tileId"]].contributor_id is None
