@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Crowd Mandelbrot</title>
+  <meta name="description" content="Visitors' browsers compute a Mandelbrot image together, tile by tile, through PipesHub." />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script>
+    // Theme: same rule and storage key as the landing page.
+    (function () {
+      var saved = null
+      try { saved = localStorage.getItem('theme') } catch (e) {}
+      if (saved === 'light' || (!saved && !matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.replace('dark', 'light')
+      }
+    })()
+  </script>
+  <script>
+    // PipesHub endpoints: the same hub as the other playground demos. For
+    // testing, a page served from localhost or a private network may use
+    // another hub: ?hub=local for the hub on this host, or
+    // ?hub=<socket url>&auth=<auth url>.
+    (function () {
+      var q = new URLSearchParams(location.search)
+      var local = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname)
+      var hub = local ? q.get('hub') : null
+      window.__PIPESHUB_URL__      = 'https://playground.aixker.com:3000'
+      window.__PIPESHUB_AUTH_URL__ = 'https://playground.aixker.com'
+      if (hub) {
+        window.__PIPESHUB_URL__      = hub === 'local' ? 'http://' + location.hostname + ':3000' : hub
+        window.__PIPESHUB_AUTH_URL__ = q.get('auth') || 'http://' + location.hostname + ':16916'
+      }
+    })()
+  </script>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <a class="brand" href="../index.html">
+        <img src="/assets/logo.svg" alt="" />
+        <span>Crowd Mandelbrot</span>
+      </a>
+    </div>
+    <div class="topbar-right">
+      <span id="conn" class="conn" data-state="idle">offline</span>
+      <button id="theme-toggle" class="btn-icon" type="button"></button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="stage" aria-label="Image">
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Colour by">
+          <button type="button" data-mode="fractal" aria-pressed="true">Fractal</button>
+          <button type="button" data-mode="who" aria-pressed="false">Who computed it</button>
+        </div>
+        <div class="toolbar-right">
+          <button id="save-btn" class="btn btn-small" type="button">Save PNG</button>
+          <button id="metrics-btn" class="btn btn-small" type="button" aria-pressed="false" title="Metrics (M)">Metrics <kbd>M</kbd></button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="2048" height="2048" role="img" aria-label="The Mandelbrot image, drawn tile by tile"></canvas>
+        <canvas id="overlay" class="overlay" width="2048" height="2048" aria-hidden="true"></canvas>
+      </div>
+      <p id="status" class="status" role="status" hidden></p>
+    </section>
+
+    <aside class="panel">
+
+      <div class="card">
+        <div class="eyebrow">Now computing</div>
+        <h1 id="job-name">…</h1>
+        <p id="job-meta" class="muted small mono"></p>
+        <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+        <p id="progress-text" class="mono small" aria-live="off">–</p>
+      </div>
+
+      <form id="contribute-form" class="card contribute" novalidate>
+        <p class="muted small">Lend this tab's CPU. It asks the coordinator for tiles, computes them in a Web Worker and sends the result back.</p>
+        <label>Nickname
+          <input id="nickname" type="text" maxlength="20" autocomplete="nickname" spellcheck="false" placeholder="anonymous" />
+        </label>
+        <label>Threads
+          <select id="threads"></select>
+        </label>
+        <button id="contribute-btn" class="btn btn-primary" type="submit">Contribute CPU</button>
+        <div id="my-stats" class="my-stats" hidden>
+          <div><span class="swatch" aria-hidden="true"></span>This tab computed <b id="mine" class="mono">0</b> tiles</div>
+          <div class="muted">Share of this image: <b id="share" class="mono">0%</b></div>
+        </div>
+      </form>
+
+      <div class="card">
+        <div class="board-head">
+          <h2>Leaderboard</h2>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" data-board="job" aria-selected="true">This image</button>
+            <button type="button" role="tab" data-board="all" aria-selected="false">All time</button>
+          </div>
+        </div>
+        <ol id="board-list" class="board"></ol>
+        <p id="board-empty" class="muted small">No tiles computed yet.</p>
+      </div>
+
+    </aside>
+  </main>
+
+  <aside id="metrics" class="metrics card" aria-label="Metrics" hidden>
+    <div class="board-head">
+      <h2>Metrics</h2>
+      <button id="metrics-close" class="btn-icon" type="button" aria-label="Close metrics">✕</button>
+    </div>
+    <dl id="metrics-list" class="metrics-list"></dl>
+    <p class="muted small">Coordinator numbers, updated every 2 s. Press <kbd>M</kbd> to hide.</p>
+  </aside>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

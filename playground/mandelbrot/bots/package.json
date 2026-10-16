@@ -1,0 +1,17 @@
+{
+  "name": "crowd-mandelbrot-bots",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chaos bots for Crowd Mandelbrot: workers that are slow, vanish, lie or drop their connection, through the real PipesHub protocol.",
+  "type": "module",
+  "bin": { "mandel-bots": "index.js" },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "socket.io-client": "4.8.3"
+  }
+}

@@ -357,6 +357,37 @@
             </div>
         </article>
 
+        <article class="game">
+            <div class="game-art" aria-hidden="true">
+                <svg viewBox="0 0 160 160">
+                    <!-- a 4×4 tile grid: done tiles in contributor colours, one in progress, the rest empty -->
+                    <g stroke="var(--dot)" stroke-width="1" fill="none" opacity="0.5">
+                        <rect x="8" y="8" width="144" height="144" rx="6"/>
+                    </g>
+                    <rect x="44" y="44" width="36" height="36" fill="var(--line-a)"/>
+                    <rect x="80" y="44" width="36" height="36" fill="var(--line-b)"/>
+                    <rect x="44" y="80" width="36" height="36" fill="var(--line-b)"/>
+                    <rect x="80" y="80" width="36" height="36" fill="var(--line-a)"/>
+                    <rect x="80" y="8" width="36" height="36" fill="var(--opt-2)"/>
+                    <rect x="8" y="44" width="36" height="36" fill="var(--line-a)"/>
+                    <rect x="116" y="80" width="36" height="36" fill="var(--opt-2)"/>
+                    <rect x="46" y="118" width="32" height="32" fill="none" stroke="var(--line-b)" stroke-width="3"/>
+                    <rect x="118" y="46" width="32" height="32" fill="none" stroke="var(--opt-2)" stroke-width="3"/>
+                    <!-- the main cardioid and bulb, in black like the set -->
+                    <circle cx="86" cy="80" r="22" fill="#000"/>
+                    <circle cx="56" cy="80" r="10" fill="#000"/>
+                </svg>
+            </div>
+            <div class="game-body">
+                <h2>Crowd Mandelbrot</h2>
+                <p>Lend your browser's CPU to draw a fractal together. A coordinator hands out tiles, checks the answers, and copes with helpers that stall, vanish or lie.</p>
+                <div class="tags"><span class="tag">many browsers</span><span class="tag">volunteer computing</span></div>
+                <div class="actions">
+                    <a class="btn btn-primary" href="mandelbrot/">Watch or help</a>
+                </div>
+            </div>
+        </article>
+
     </div>
 </main>
 
