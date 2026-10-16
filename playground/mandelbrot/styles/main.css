@@ -130,7 +130,7 @@ button, input, select { font: inherit; color: inherit; }
 
 .canvas-wrap {
   position: relative;
-  width: min(100%, calc(100dvh - 92px));
+  width: min(100%, calc(100dvh - 180px));
   aspect-ratio: 1;
   margin: 0 auto;
   background: var(--bg-raised);
@@ -242,3 +242,106 @@ input:disabled { opacity: 0.6; }
   .canvas-wrap { width: 100%; }
   .topbar { padding: 0 16px; }
 }
+
+/* ── Toolbar ─────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: min(100%, calc(100dvh - 180px));
+  margin: 0 auto;
+}
+
+.toolbar-right { display: flex; gap: 8px; }
+
+.segmented, .tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.segmented button, .tabs button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed="true"], .tabs button[aria-selected="true"] {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.segmented button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.btn-small { min-height: 32px; padding: 0 12px; font-size: 0.8rem; }
+
+kbd {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.canvas-wrap .overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.status { min-height: 1.5em; }
+
+/* ── Leaderboard ─────────────────────────────────── */
+h2 { font-size: 1rem; letter-spacing: -0.01em; }
+
+.board-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.board { list-style: none; counter-reset: rank; display: flex; flex-direction: column; gap: 2px; }
+
+.board li {
+  counter-increment: rank;
+  display: grid;
+  grid-template-columns: 1.6em 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+}
+
+.board li::before { content: counter(rank); color: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
+.board li.me { background: var(--accent-glow); }
+.board .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .swatch { margin: 0; }
+
+/* ── Metrics panel ───────────────────────────────── */
+.metrics {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 10;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 90px);
+  overflow: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.metrics-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 16px;
+  font-size: 0.82rem;
+}
+
+.metrics-list dt { color: var(--muted); }
+.metrics-list dd { text-align: right; }

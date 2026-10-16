@@ -58,8 +58,19 @@
   <main class="layout">
 
     <section class="stage" aria-label="Image">
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Colour by">
+          <button type="button" data-mode="fractal" aria-pressed="true">Fractal</button>
+          <button type="button" data-mode="who" aria-pressed="false">Who computed it</button>
+        </div>
+        <div class="toolbar-right">
+          <button id="save-btn" class="btn btn-small" type="button">Save PNG</button>
+          <button id="metrics-btn" class="btn btn-small" type="button" aria-pressed="false" title="Metrics (M)">Metrics <kbd>M</kbd></button>
+        </div>
+      </div>
       <div class="canvas-wrap">
         <canvas id="canvas" width="2048" height="2048" role="img" aria-label="The Mandelbrot image, drawn tile by tile"></canvas>
+        <canvas id="overlay" class="overlay" width="2048" height="2048" aria-hidden="true"></canvas>
       </div>
       <p id="status" class="status" role="status" hidden></p>
     </section>
@@ -89,8 +100,29 @@
         </div>
       </form>
 
+      <div class="card">
+        <div class="board-head">
+          <h2>Leaderboard</h2>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" data-board="job" aria-selected="true">This image</button>
+            <button type="button" role="tab" data-board="all" aria-selected="false">All time</button>
+          </div>
+        </div>
+        <ol id="board-list" class="board"></ol>
+        <p id="board-empty" class="muted small">No tiles computed yet.</p>
+      </div>
+
     </aside>
   </main>
+
+  <aside id="metrics" class="metrics card" aria-label="Metrics" hidden>
+    <div class="board-head">
+      <h2>Metrics</h2>
+      <button id="metrics-close" class="btn-icon" type="button" aria-label="Close metrics">✕</button>
+    </div>
+    <dl id="metrics-list" class="metrics-list"></dl>
+    <p class="muted small">Coordinator numbers, updated every 2 s. Press <kbd>M</kbd> to hide.</p>
+  </aside>
 
   <script type="module" src="src/app.js"></script>
 </body>
