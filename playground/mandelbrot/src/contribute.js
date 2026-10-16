@@ -18,6 +18,9 @@ const RETRY_MS          = 1_000
  *                 'error'     { stage, error }
  *                 'forgotten' {}  the coordinator does not know this unit as
  *                                 a worker (e.g. it restarted): HELLO again
+ *                 'lease'     { tasks, reason }  every LEASE reply
+ *                                 (reason WORKERS_FULL: the coordinator has
+ *                                 enough workers; RATE_LIMIT: asked too often)
  */
 export function createContributor({ pipe, coordinator, threads = 1, makeWorker, onEvent = () => {} }) {
   let pool    = []
@@ -67,6 +70,7 @@ export function createContributor({ pipe, coordinator, threads = 1, makeWorker, 
       if (!running || my !== gen) break
       const tasks = Array.isArray(reply?.tasks) ? reply.tasks : []
       if (reply?.reason === 'HELLO_FIRST') onEvent('forgotten', {})
+      onEvent('lease', { tasks: tasks.length, reason: reply?.reason })
       if (!tasks.length) { await nap(reply?.wait ?? RETRY_MS); continue }
       const free = pool.filter(p => !p.busy)   // the pool may have shrunk meanwhile
       tasks.slice(0, free.length).forEach((task, i) => runTask(free[i], task))
@@ -91,7 +95,8 @@ export function createContributor({ pipe, coordinator, threads = 1, makeWorker, 
       const res = await pipe.ask(coordinator, 'SUBMIT',
         { jobId: task.jobId, tileId: task.tileId, leaseId: task.leaseId, data },
         { timeoutMs: SUBMIT_TIMEOUT_MS })
-      onEvent('submitted', { task, accepted: !!res?.accepted, reason: res?.reason, ms: performance.now() - t0 })
+      onEvent('submitted', { task, accepted: !!res?.accepted, verifying: !!res?.verifying,
+                             reason: res?.reason, ms: performance.now() - t0 })
     } catch (err) {
       onEvent('error', { stage: 'submit', error: err })
     }

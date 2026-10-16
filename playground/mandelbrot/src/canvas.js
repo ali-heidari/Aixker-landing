@@ -124,6 +124,12 @@ export function createTileCanvas(canvas, overlay, colorOf = () => undefined) {
     refreshColors() {
       if (mode === 'who') repaint(e => !e.colored && colorOf(e.contributorId))
     },
+    /** Forget a tile the coordinator threw out (its author was caught lying). */
+    clearTile(tileId) {
+      if (!validTile(tileId) || !tiles.delete(tileId)) return
+      const { x, y, w, h } = geometry(tileId)
+      ctx.clearRect(x, y, w, h)
+    },
     /** Outline tiles in progress: [[tileId, contributorId], …]. */
     drawLeased(leased) {
       if (!job) return

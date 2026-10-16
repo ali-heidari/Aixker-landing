@@ -32,7 +32,15 @@ const METRIC_LABELS = [
   ['backupsWon',       'Backup tasks won'],
   ['verifyChecks',     'Verification checks'],
   ['verifyMismatches', 'Verification mismatches'],
-  ['suspects',         'Suspect contributors'],
+  ['verifying',        'Tiles being verified now'],
+  ['judged',           'Tiles judged by the coordinator'],
+  ['judgeBacklog',     'Waiting to be judged'],
+  ['suspects',         'Suspects flagged'],
+  ['revokedTiles',     'Tiles thrown out (suspects)'],
+  ['coordinatorTiles', 'Tiles the coordinator computed'],
+  ['rejectedTooLarge', 'Results over 64 KB'],
+  ['rateLimited',      'LEASE calls rate-limited'],
+  ['workersFull',      'LEASE calls refused (workers full)'],
   ['fanoutMsLast',     'Fan-out, last batch', 'ms'],
   ['fanoutMsP95',      'Fan-out p95', 'ms'],
   ['viewersDropped',   'Silent viewers dropped'],
@@ -163,8 +171,9 @@ function onJob(job) {
   startJob(job)
 }
 
-function onTilesDone({ jobId, tiles: batch }) {
+function onTilesDone({ jobId, tiles: batch, revoked }) {
   if (!tiles.job || jobId !== tiles.job.jobId || !Array.isArray(batch)) return
+  if (Array.isArray(revoked)) for (const id of revoked) tiles.clearTile(id)
   for (const t of batch) {
     if (tiles.has(t.tileId)) continue
     let counts
@@ -248,6 +257,7 @@ async function toggleContribute() {
     contributor = null
     role = 'viewer'
     setNote('paused', '')
+    setNote('full', '')
     renderContribute()
     hello({ fresh: true })
     return
@@ -269,7 +279,13 @@ async function toggleContribute() {
 
 function onEvent(type, detail) {
   if (type === 'forgotten') { hello(); return }
-  if (type === 'submitted' && detail.accepted && detail.task.jobId === tiles.job?.jobId) {
+  if (type === 'lease') {
+    if (detail.reason === 'WORKERS_FULL') setNote('full', 'Enough browsers are computing right now. This tab will keep asking.')
+    else if (detail.tasks) setNote('full', '')
+    return
+  }
+  // A result held for verification is credited to whoever sent it first, so count only clear wins.
+  if (type === 'submitted' && detail.accepted && !detail.verifying && detail.task.jobId === tiles.job?.jobId) {
     mine++
     updateProgress()
   }
