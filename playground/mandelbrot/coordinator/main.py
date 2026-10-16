@@ -60,7 +60,8 @@ def png_name(done: FinishedJob) -> str:
 
 async def run(args: argparse.Namespace) -> int:
     config = Config(width=args.width, height=args.height, tile_size=args.tile,
-                    rollover_delay_s=args.rollover_delay, viewer_cap=args.viewer_cap)
+                    rollover_delay_s=args.rollover_delay, viewer_cap=args.viewer_cap,
+                    verify_rate=args.verify_rate, probation=args.probation, max_workers=args.max_workers)
     coord = Coordinator(config, first_job=args.first_job)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -136,17 +137,34 @@ async def run(args: argparse.Namespace) -> int:
                 log.info("job %s: %d/%d done, %d leased, %d failed; %d viewers (+%d over cap), "
                          "%d active workers; %.1f tiles/s, turnaround p50 %s p95 %s ms; lease %.1f s; "
                          "expiries %d, retries %d, dup %d, stale %d, invalid %d, backups %d/%d won; "
+                         "verify %d checks, %d mismatches, %d suspects, %d revoked; "
                          "fan-out p95 %s ms", coord.job.id, coord.done_count, len(coord.job.tiles),
                          m["leased"], m["failedPending"], m["viewers"], m["overflowViewers"],
                          m["activeWorkers"], m["tilesPerSecond"], m["turnaroundP50Ms"], m["turnaroundP95Ms"],
                          m["leaseSeconds"], m["leaseExpiries"], m["retries"], m["duplicates"],
                          m["rejectedStale"], m["rejectedInvalid"], m["backupsWon"], m["backupsIssued"],
+                         m["verifyChecks"], m["verifyMismatches"], m["suspects"], m["revokedTiles"],
                          m["fanoutMsP95"])
             await asyncio.sleep(TICK_S)
 
-    runner = asyncio.create_task(main_loop())
+    async def judge_loop() -> None:
+        """Compute tiles whose results disagree; one at a time, off the event loop."""
+        while not stop.is_set():
+            if not coord.judge_queue:
+                await asyncio.sleep(TICK_S)
+                continue
+            item = coord.judge_queue.pop(0)
+            truth = await asyncio.to_thread(lambda t=item["task"]: counts_to_bytes(task_counts(t)))
+            before = coord.counters["suspects"]
+            coord.resolve(item["jobId"], item["tileId"], truth)
+            if coord.counters["suspects"] > before:
+                log.info("tile %s/%s judged: %d suspect(s) so far, %d tiles revoked", item["jobId"],
+                         item["tileId"], coord.counters["suspects"], coord.counters["revokedTiles"])
+
+    tasks = [asyncio.create_task(main_loop()), asyncio.create_task(judge_loop())]
     await stop.wait()
-    runner.cancel()
+    for t in tasks:
+        t.cancel()
     await pipe.close()
     return exit_code
 
@@ -163,6 +181,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--rollover-delay", type=float, default=10.0,
                    help="seconds a finished image stays up before the next job")
     p.add_argument("--viewer-cap", type=int, default=500, help="viewers that get tiles; the rest get STATS only")
+    p.add_argument("--verify-rate", type=float, default=0.05, help="share of tiles computed by two workers")
+    p.add_argument("--probation", type=int, default=3,
+                   help="a contributor's first N results are always verified (0 = off)")
+    p.add_argument("--max-workers", type=int, default=200, help="active workers that get tiles")
     p.add_argument("--check", action="store_true", help="recompute each finished job and count wrong tiles")
     p.add_argument("--out", default="out", help="directory for PNGs and check reports")
     p.add_argument("--log-level", default="INFO")

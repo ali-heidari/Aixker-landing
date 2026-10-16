@@ -15,6 +15,14 @@ A tile moves through these states:
 While the queue is empty but tiles are still leased, idle workers get backup
 copies of the oldest leases. The first valid result wins; later ones are
 dropped as duplicates.
+
+Verification: senderId is not checked by PipesHub, so any result may be a
+lie. A random 5% of tiles, a new contributor's first 3 results (probation),
+and every result from a suspect need a second result from another
+contributor. Equal hashes from two non-suspects are
+accepted. Anything else is judged: the caller computes the tile itself
+(judge_queue → resolve()). Whoever sent a wrong result becomes a suspect, and
+every tile they have in this job is thrown out and computed again.
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ import binascii
 import colorsys
 import hashlib
 import heapq
+import random
 import re
 import secrets
 import statistics
@@ -60,6 +69,13 @@ class Config:
     viewer_ttl_s: float = 75.0     # a viewer silent this long is dropped (tabs HELLO every 30 s)
     worker_active_s: float = 30.0  # "active worker": LEASE or SUBMIT within this window
     rollover_delay_s: float = 10.0 # time a finished image stays up before the next job
+    verify_rate: float = 0.05      # share of tiles computed twice
+    probation: int = 3             # a contributor's first results that are always verified
+    max_workers: int = 200         # active workers; others are told to wait
+    max_result_bytes: int = 65_536 # base64 length of one SUBMIT's data
+    lease_rate: float = 10.0       # LEASE calls per second per unit …
+    lease_burst: float = 20.0      # … with this much burst
+    workers_full_wait_ms: int = 10_000
 
 
 @dataclass
@@ -74,6 +90,16 @@ class Lease:
 
 
 @dataclass
+class Candidate:
+    """A result held back until a second one (or the judge) confirms it."""
+    unit: str
+    data_b64: str
+    sha256: str
+    lease: Lease
+    at: float
+
+
+@dataclass
 class TileState:
     done: bool = False
     queued: bool = True
@@ -83,7 +109,10 @@ class TileState:
     active: dict[str, Lease] = field(default_factory=dict)   # lease id → lease
     data_b64: str | None = None
     sha256: str | None = None
-    contributor_id: str | None = None
+    contributor_id: str | None = None   # None: computed by the coordinator itself
+    verify: bool = False                # picked for verification at job start
+    candidates: list[Candidate] = field(default_factory=list)
+    judging: bool = False               # waiting for the coordinator's own result
 
 
 @dataclass
@@ -95,7 +124,12 @@ class Contributor:
     role: str = "viewer"
     tiles_job: int = 0
     tiles_total: int = 0
-    last_seen: float = 0.0
+    last_seen: float = 0.0         # any message
+    last_work: float = -1e9        # last LEASE granted or SUBMIT
+    suspect: bool = False          # sent a result the judge found wrong
+    proven: int = 0                # results confirmed by a second result or the judge
+    tokens: float = -1.0           # LEASE rate-limit bucket (-1: full)
+    tokens_at: float = 0.0
 
 
 def contributor_color(n: int) -> str:
@@ -144,14 +178,26 @@ def new_counters() -> dict[str, int]:
         "backupsWon": 0,
         "viewersDropped": 0,    # silent longer than viewer_ttl_s
         "jobsFinished": 0,
+        "verifyChecks": 0,      # tiles whose two results were compared
+        "verifyMismatches": 0,  # … and differed
+        "judged": 0,            # tiles the coordinator computed itself to decide
+        "suspects": 0,          # contributors flagged
+        "revokedTiles": 0,      # done tiles thrown out because their author became a suspect
+        "coordinatorTiles": 0,  # judged tiles where no crowd result was right
+        "rejectedTooLarge": 0,
+        "rateLimited": 0,       # LEASE calls over the per-unit rate
+        "workersFull": 0,       # LEASE calls refused at max_workers
     }
 
 
 class Coordinator:
     def __init__(self, config: Config | None = None, *, clock: Callable[[], float] = time.monotonic,
-                 job_factory: Callable[[int, Config], Job] | None = None, first_job: int = 0):
+                 job_factory: Callable[[int, Config], Job] | None = None, first_job: int = 0,
+                 rng: random.Random | None = None):
         self.config = config or Config()
         self.clock = clock
+        self.rng = rng or random.Random()
+        self.judge_queue: list[dict] = []                # tiles the caller must compute: see resolve()
         self._job_factory = job_factory or (lambda seq, c: make_job(seq, c.width, c.height, c.tile_size))
         self.contributors: dict[str, Contributor] = {}   # unit → contributor
         self._by_id: dict[str, Contributor] = {}         # contributor id → contributor
@@ -165,6 +211,7 @@ class Coordinator:
         self.fanout_ms: deque[float] = deque(maxlen=200)
         self._accept_times: deque[float] = deque()
         self._pending_tiles: list[dict] = []             # accepted, not yet sent to viewers
+        self._revoked: list[int] = []                    # thrown out, not yet told to viewers
         self._rest_until: float | None = None            # set while a finished image is shown
         self._last_prune = 0.0
         self._start_job(first_job)
@@ -242,13 +289,22 @@ class Coordinator:
             capacity = 1
         capacity = max(1, min(self.config.max_capacity, capacity))
 
+        now = self.clock()
+        wait_s = self._take_token(c, now)
+        if wait_s:
+            self.counters["rateLimited"] += 1
+            return {"tasks": [], "wait": max(100, round(wait_s * 1000)), "reason": "RATE_LIMIT"}
+        if now - c.last_work > self.config.worker_active_s and self.active_workers(now) >= self.config.max_workers:
+            self.counters["workersFull"] += 1
+            return {"tasks": [], "wait": self.config.workers_full_wait_ms, "reason": "WORKERS_FULL"}
+
         if self._rest_until is not None:                 # showing the finished image
             left_ms = (self._rest_until - self.clock()) * 1000
             return {"tasks": [], "wait": int(min(5000, max(250, left_ms)))}
 
         tasks = []
         while len(tasks) < capacity:
-            tile_id = self._next_queued()
+            tile_id = self._next_queued(unit)
             if tile_id is None:
                 break
             tasks.append(self._grant(unit, tile_id))
@@ -256,8 +312,9 @@ class Coordinator:
             for tile_id in self._backup_candidates(unit, capacity - len(tasks)):
                 tasks.append(self._grant(unit, tile_id, backup=True))
         if tasks:
+            c.last_work = now
             return {"tasks": tasks}
-        busy = any(ts.active for ts in self.tiles)
+        busy = any(ts.active or ts.judging or ts.candidates for ts in self.tiles)
         return {"tasks": [], "wait": self.config.busy_wait_ms if busy else self.config.wait_ms}
 
     def submit(self, unit: str, inp: dict) -> dict:
@@ -271,13 +328,21 @@ class Coordinator:
         if lease is None or lease.tile_id != tile_id or lease.unit != unit:
             return self._reject_stale("NO_LEASE")
         ts = self.tiles[tile_id]
-        if ts.done:
+        c = self.contributors[unit]
+        now = self.clock()
+        c.last_work = now
+        if ts.done or ts.judging or any(cand.unit == unit for cand in ts.candidates):
             # Idempotent: a result for a done tile is never applied twice.
             self.counters["duplicates"] += 1
             self._end_lease(lease)
             return {"accepted": False, "reason": "ALREADY_DONE"}
 
         data_b64 = inp.get("data")
+        if isinstance(data_b64, str) and len(data_b64) > self.config.max_result_bytes:
+            self.counters["rejectedTooLarge"] += 1
+            self._end_lease(lease)
+            self._requeue_if_orphaned(tile_id, front=True)
+            return {"accepted": False, "reason": "TOO_LARGE"}
         reason = self._validate(tile_id, data_b64)
         if reason:
             self.counters["rejectedInvalid"] += 1
@@ -285,31 +350,58 @@ class Coordinator:
             self._requeue_if_orphaned(tile_id, front=True)
             return {"accepted": False, "reason": reason}
 
-        # Accepted: an active lease, or an expired one whose tile is not done.
-        now = self.clock()
-        c = self.contributors[unit]
+        sha = hashlib.sha256(base64.b64decode(data_b64)).hexdigest()
+        on_probation = c.proven < self.config.probation
+        if not (ts.verify or c.suspect or ts.candidates or on_probation):
+            # Accepted: an active lease, or an expired one whose tile is not done.
+            self._accept(tile_id, c, data_b64, sha, lease, now)
+            return {"accepted": True}
+
+        # Verification: hold the result until a second one arrives.
+        self._end_lease(lease)
+        ts.candidates.append(Candidate(unit=unit, data_b64=data_b64, sha256=sha, lease=lease, at=now))
+        if len(ts.candidates) == 1:
+            self._requeue_if_orphaned(tile_id, front=True)   # for someone else
+            return {"accepted": True, "verifying": True}
+
+        first, second = ts.candidates[:2]
+        self.counters["verifyChecks"] += 1
+        if first.sha256 != second.sha256:
+            self.counters["verifyMismatches"] += 1
+        elif not (self._suspect(first.unit) or self._suspect(second.unit)):
+            for cand in (first, second):
+                self.contributors[cand.unit].proven += 1
+            self._accept(tile_id, self.contributors[first.unit], first.data_b64, first.sha256, first.lease, now)
+            return {"accepted": True}
+        # They differ, or a suspect is involved: the coordinator decides.
         for other in list(ts.active.values()):
             self._end_lease(other)
-        lease.active = False
-        ts.done = True
+        ts.judging = True
         ts.queued = False
-        ts.data_b64 = data_b64
-        ts.sha256 = hashlib.sha256(base64.b64decode(data_b64)).hexdigest()
-        ts.contributor_id = c.id
-        c.tiles_job += 1
-        c.tiles_total += 1
-        self._done_count += 1
-        self.counters["accepted"] += 1
-        if lease.backup:
-            self.counters["backupsWon"] += 1
-        self.tile_times.append(now - lease.granted_at)
-        self.turnaround.append(now - lease.granted_at)
-        self._accept_times.append(now)
-        self._pending_tiles.append(self._tile_msg(tile_id, ts))
+        self.judge_queue.append({"jobId": self.job.id, "tileId": tile_id,
+                                 "task": self.job.task(self.job.tiles[tile_id], "judge")})
+        return {"accepted": True, "verifying": True}
 
-        if self._done_count == len(self.tiles):
-            self._finish_job(now)
-        return {"accepted": True}
+    def resolve(self, job_id: str, tile_id: int, truth: bytes) -> None:
+        """The coordinator's own result for a judged tile (see judge_queue)."""
+        if job_id != self.job.id or not self.tiles[tile_id].judging:
+            return
+        ts = self.tiles[tile_id]
+        now = self.clock()
+        truth_sha = hashlib.sha256(truth).hexdigest()
+        self.counters["judged"] += 1
+        for cand in ts.candidates:
+            if cand.sha256 != truth_sha:
+                self._mark_suspect(cand.unit)
+        right = [cand for cand in ts.candidates if cand.sha256 == truth_sha]
+        for cand in right:
+            self.contributors[cand.unit].proven += 1
+        if right:
+            w = right[0]
+            self._accept(tile_id, self.contributors[w.unit], w.data_b64, w.sha256, w.lease, now)
+        else:
+            self.counters["coordinatorTiles"] += 1
+            self._accept(tile_id, None, base64.b64encode(truth).decode(), truth_sha, None, now)
 
     def bye(self, unit: str) -> None:
         self.viewers.discard(unit)
@@ -356,6 +448,11 @@ class Coordinator:
     def done_count(self) -> int:
         return self._done_count
 
+    def active_workers(self, now: float | None = None) -> int:
+        now = self.clock() if now is None else now
+        return sum(1 for c in self.contributors.values()
+                   if c.role == "worker" and now - c.last_work <= self.config.worker_active_s)
+
     def failed_pending(self) -> int:
         return sum(1 for ts in self.tiles if ts.failed and not ts.done)
 
@@ -372,12 +469,15 @@ class Coordinator:
 
     def tile_batches(self) -> list[tuple[str, str, dict]]:
         """One TILE_DONE per viewer for everything accepted since the last call."""
-        if not self._pending_tiles:
+        if not self._pending_tiles and not self._revoked:
             return []
         tiles, self._pending_tiles = self._pending_tiles, []
-        chunks = self._chunks(tiles)
-        return [(v, "TILE_DONE", {"jobId": self.job.id, "tiles": chunk})
-                for v in self.viewers for chunk in chunks]
+        revoked, self._revoked = self._revoked, []
+        chunks = self._chunks(tiles) or [[]]
+        bodies = [{"jobId": self.job.id, "tiles": chunk} for chunk in chunks]
+        if revoked:
+            bodies[0]["revoked"] = revoked               # viewers clear these before drawing
+        return [(v, "TILE_DONE", body) for v in self.viewers for body in bodies]
 
     def record_fanout(self, ms: float) -> None:
         self.fanout_ms.append(ms)
@@ -397,7 +497,7 @@ class Coordinator:
                 ids.add(cid)
 
         def board(key):
-            ranked = sorted((c for c in self.contributors.values() if getattr(c, key) > 0),
+            ranked = sorted((c for c in self.contributors.values() if getattr(c, key) > 0 and not c.suspect),
                             key=lambda c: (-getattr(c, key), c.id))[:10]
             ids.update(c.id for c in ranked)
             return [[c.id, getattr(c, key)] for c in ranked]
@@ -406,8 +506,10 @@ class Coordinator:
         p50, p95 = percentile(self.turnaround, 50), percentile(self.turnaround, 95)
         metrics = {
             **self.counters,
-            "activeWorkers": sum(1 for c in self.contributors.values()
-                                 if c.role == "worker" and now - c.last_seen <= cfg.worker_active_s),
+            "activeWorkers": self.active_workers(now),
+            "suspectContributors": sum(1 for c in self.contributors.values() if c.suspect),
+            "verifying": sum(1 for ts in self.tiles if ts.candidates or ts.judging),
+            "judgeBacklog": len(self.judge_queue),
             "viewers": len(self.viewers),
             "overflowViewers": len(self.overflow),
             "tilesPerSecond": round(self._recent_accepts(10.0) / 10.0, 2),
@@ -439,11 +541,13 @@ class Coordinator:
 
     def _start_job(self, seq: int) -> None:
         self.job = self._job_factory(seq, self.config)
-        self.tiles = [TileState() for _ in self.job.tiles]
+        self.tiles = [TileState(verify=self.rng.random() < self.config.verify_rate) for _ in self.job.tiles]
         self.leases: dict[str, Lease] = {}               # every lease of this job
         self._queue = deque(center_out_order(self.job))
         self._failed_queue: deque[int] = deque()
         self._expiry_heap: list[tuple[float, str]] = []
+        self.judge_queue = []
+        self._revoked = []
         self._done_count = 0
         self._job_started = self.clock()
         self._counters_at_start = dict(self.counters)
@@ -499,22 +603,32 @@ class Coordinator:
             chunks.append(batch)
         return chunks
 
-    def _next_queued(self) -> int | None:
-        while self._queue:
-            tile_id = self._queue.popleft()
-            ts = self.tiles[tile_id]
-            if ts.queued and not ts.done and not ts.active:
-                ts.queued = False
-                return tile_id
+    def _next_queued(self, unit: str) -> int | None:
+        """Next tile for `unit`, never one it already sent a held result for."""
+        tile_id = self._pop_queue(self._queue, unit)
+        if tile_id is not None:
+            return tile_id
         # Failed tiles go out again only once every other tile is done.
         if self._done_count + self.failed_pending() == len(self.tiles):
-            while self._failed_queue:
-                tile_id = self._failed_queue.popleft()
-                ts = self.tiles[tile_id]
-                if ts.queued and not ts.done and not ts.active:
-                    ts.queued = False
-                    return tile_id
+            return self._pop_queue(self._failed_queue, unit)
         return None
+
+    def _pop_queue(self, queue: deque[int], unit: str) -> int | None:
+        skipped = []
+        found = None
+        while queue:
+            tile_id = queue.popleft()
+            ts = self.tiles[tile_id]
+            if not ts.queued or ts.done or ts.active or ts.judging:
+                continue                                 # stale entry
+            if any(cand.unit == unit for cand in ts.candidates):
+                skipped.append(tile_id)
+                continue
+            ts.queued = False
+            found = tile_id
+            break
+        queue.extendleft(reversed(skipped))
+        return found
 
     def _backup_candidates(self, unit: str, n: int) -> list[int]:
         """Oldest straggling leases this unit does not already hold."""
@@ -524,9 +638,11 @@ class Coordinator:
         now = self.clock()
         out = []
         for ts_id, ts in enumerate(self.tiles):
-            if ts.done or not ts.active or len(ts.active) > self.config.backup_copies:
+            if ts.done or ts.judging or not ts.active or len(ts.active) > self.config.backup_copies:
                 continue
             if any(lease.unit == unit for lease in ts.active.values()):
+                continue
+            if any(cand.unit == unit for cand in ts.candidates):
                 continue
             oldest = min(lease.granted_at for lease in ts.active.values())
             if now - oldest >= min_age:
@@ -549,13 +665,81 @@ class Coordinator:
         ts.grants += 1
         return self.job.task(self.job.tiles[tile_id], lease.id)
 
+    def _accept(self, tile_id: int, c: Contributor | None, data_b64: str, sha: str,
+                lease: Lease | None, now: float) -> None:
+        ts = self.tiles[tile_id]
+        for other in list(ts.active.values()):
+            self._end_lease(other)
+        if lease:
+            lease.active = False
+        ts.done = True
+        ts.queued = False
+        ts.judging = False
+        ts.candidates = []
+        ts.data_b64 = data_b64
+        ts.sha256 = sha
+        ts.contributor_id = c.id if c else None
+        if c:
+            c.tiles_job += 1
+            c.tiles_total += 1
+        self._done_count += 1
+        self.counters["accepted"] += 1
+        if lease:
+            if lease.backup:
+                self.counters["backupsWon"] += 1
+            self.tile_times.append(now - lease.granted_at)
+            self.turnaround.append(now - lease.granted_at)
+        self._accept_times.append(now)
+        self._pending_tiles.append(self._tile_msg(tile_id, ts))
+        if self._done_count == len(self.tiles):
+            self._finish_job(now)
+
+    def _suspect(self, unit: str) -> bool:
+        c = self.contributors.get(unit)
+        return bool(c and c.suspect)
+
+    def _mark_suspect(self, unit: str) -> None:
+        """Flag a contributor and throw out every tile it has in this job."""
+        c = self.contributors.get(unit)
+        if c is None or c.suspect:
+            return
+        c.suspect = True
+        self.counters["suspects"] += 1
+        revoked = set()
+        for tid, ts in enumerate(self.tiles):
+            if not ts.done or ts.contributor_id != c.id:
+                continue
+            ts.done = False
+            ts.data_b64 = ts.sha256 = ts.contributor_id = None
+            self._done_count -= 1
+            c.tiles_job -= 1
+            c.tiles_total -= 1
+            self.counters["revokedTiles"] += 1
+            revoked.add(tid)
+            self._requeue_if_orphaned(tid, front=True)
+        if revoked:
+            self._pending_tiles = [t for t in self._pending_tiles if t["tileId"] not in revoked]
+            self._revoked.extend(sorted(revoked))
+
+    def _take_token(self, c: Contributor, now: float) -> float:
+        """Token bucket for LEASE. Returns 0 if allowed, else seconds to wait."""
+        cfg = self.config
+        if c.tokens < 0:
+            c.tokens, c.tokens_at = cfg.lease_burst, now
+        c.tokens = min(cfg.lease_burst, c.tokens + (now - c.tokens_at) * cfg.lease_rate)
+        c.tokens_at = now
+        if c.tokens >= 1:
+            c.tokens -= 1
+            return 0.0
+        return (1 - c.tokens) / cfg.lease_rate
+
     def _end_lease(self, lease: Lease) -> None:
         lease.active = False
         self.tiles[lease.tile_id].active.pop(lease.id, None)
 
     def _requeue_if_orphaned(self, tile_id: int, front: bool = False) -> None:
         ts = self.tiles[tile_id]
-        if ts.done or ts.active or ts.queued:
+        if ts.done or ts.active or ts.queued or ts.judging:
             return
         ts.queued = True
         if ts.failed:

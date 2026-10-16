@@ -23,10 +23,12 @@ class Clock:
 def small(clock, **overrides):
     """A 64×64 job in 16 px tiles: 16 tiles, center ones are 5, 6, 9, 10.
 
-    Silent units are never dropped and the next job never starts, unless
-    a test overrides that.
+    Silent units are never dropped, the next job never starts, nothing is
+    verified (no sampling, no probation) and LEASE is not rate-limited,
+    unless a test overrides that.
     """
-    base = {"width": 64, "height": 64, "tile_size": 16, "viewer_ttl_s": 1e9, "rollover_delay_s": 1e9}
+    base = {"width": 64, "height": 64, "tile_size": 16, "viewer_ttl_s": 1e9, "rollover_delay_s": 1e9,
+            "verify_rate": 0.0, "probation": 0, "lease_burst": 1e9}
     return Coordinator(Config(**{**base, **overrides}), clock=clock)
 
 
