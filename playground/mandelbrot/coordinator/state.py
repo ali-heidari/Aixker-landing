@@ -48,7 +48,7 @@ class Config:
     max_capacity: int = 4          # tasks per LEASE
     wait_ms: int = 1000            # LEASE reply when there is nothing to hand out
     busy_wait_ms: int = 500        # same, while tiles are still out (one may expire soon)
-    catchup_bytes: int = 512_000   # max tile data per catch-up TILE_DONE (hub cap is 1 MB)
+    batch_bytes: int = 512_000     # max tile data per TILE_DONE (the hub drops messages over 1 MB)
     lease_factor: float = 3.0      # lease = factor × median tile time …
     lease_min_s: float = 5.0       # … clamped to these bounds
     lease_max_s: float = 60.0
@@ -56,6 +56,10 @@ class Config:
     tile_time_window: int = 50     # tiles the median is taken over
     max_expiries: int = 5          # expiries before a tile is marked failed
     backup_copies: int = 1         # extra leases per straggling tile
+    viewer_cap: int = 500          # above this, new viewers get STATS only
+    viewer_ttl_s: float = 75.0     # a viewer silent this long is dropped (tabs HELLO every 30 s)
+    worker_active_s: float = 30.0  # "active worker": LEASE or SUBMIT within this window
+    rollover_delay_s: float = 10.0 # time a finished image stays up before the next job
 
 
 @dataclass
@@ -91,6 +95,7 @@ class Contributor:
     role: str = "viewer"
     tiles_job: int = 0
     tiles_total: int = 0
+    last_seen: float = 0.0
 
 
 def contributor_color(n: int) -> str:
@@ -103,6 +108,25 @@ def contributor_color(n: int) -> str:
 def clean_nickname(raw) -> str:
     text = "".join(ch for ch in str(raw or "") if ch.isprintable()).strip()
     return text[:NICKNAME_MAX] or "anonymous"
+
+
+@dataclass
+class FinishedJob:
+    """A completed job, frozen at the moment its last tile was accepted."""
+    job: Job
+    results_b64: list[str]
+    contributor_ids: list[str]
+    seconds: float
+    counters: dict[str, int]       # what happened during this job only
+
+
+def percentile(values, p: float):
+    """Nearest-rank percentile, or None for no values."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, min(len(ordered), -(-len(ordered) * p // 100)))
+    return ordered[int(rank) - 1]
 
 
 def new_counters() -> dict[str, int]:
@@ -118,6 +142,8 @@ def new_counters() -> dict[str, int]:
         "rejectedInvalid": 0,   # failed validation
         "backupsIssued": 0,
         "backupsWon": 0,
+        "viewersDropped": 0,    # silent longer than viewer_ttl_s
+        "jobsFinished": 0,
     }
 
 
@@ -128,11 +154,19 @@ class Coordinator:
         self.clock = clock
         self._job_factory = job_factory or (lambda seq, c: make_job(seq, c.width, c.height, c.tile_size))
         self.contributors: dict[str, Contributor] = {}   # unit → contributor
-        self.viewers: set[str] = set()
+        self._by_id: dict[str, Contributor] = {}         # contributor id → contributor
+        self.viewers: set[str] = set()                   # get TILE_DONE, JOB and STATS
+        self.overflow: set[str] = set()                  # over viewer_cap: STATS and JOB only
         self.outbox: list[tuple[str, str, dict]] = []    # (unit, operation, input)
-        self.finished: list[Job] = []                    # jobs completed, for the caller
+        self.finished: list[FinishedJob] = []            # jobs completed, for the caller
         self.counters = new_counters()                   # since the coordinator started
         self.tile_times: deque[float] = deque(maxlen=self.config.tile_time_window)
+        self.turnaround: deque[float] = deque(maxlen=1000)   # seconds, for metrics
+        self.fanout_ms: deque[float] = deque(maxlen=200)
+        self._accept_times: deque[float] = deque()
+        self._pending_tiles: list[dict] = []             # accepted, not yet sent to viewers
+        self._rest_until: float | None = None            # set while a finished image is shown
+        self._last_prune = 0.0
         self._start_job(first_job)
 
     # ── Messages ─────────────────────────────────────────────────────────────
@@ -141,6 +175,8 @@ class Coordinator:
         """Dispatch one inbound message. Returns the reply for asks."""
         if not isinstance(unit, str) or not UNIT_RE.match(unit):
             return {"ok": False, "accepted": False, "reason": "BAD_UNIT"}
+        if unit in self.contributors:
+            self.contributors[unit].last_seen = self.clock()
         if operation == "HELLO":
             return self.hello(unit, inp)
         if operation == "LEASE":
@@ -153,27 +189,47 @@ class Coordinator:
         return {"ok": False, "reason": "UNKNOWN_OPERATION"}
 
     def hello(self, unit: str, inp: dict) -> dict:
+        """Register a tab, or keep it registered (tabs repeat HELLO every 30 s).
+
+        A tab that already shows this job and is not missing tiles gets a
+        short reply; anyone else gets the done tiles again, as TILE_DONE
+        batches. That also repairs a tab after a coordinator restart or a
+        lost batch.
+        """
+        now = self.clock()
         role = "worker" if inp.get("role") == "worker" else "viewer"
         c = self.contributors.get(unit)
         if c is None:
             n = len(self.contributors) + 1
-            c = Contributor(id=f"c{n}", unit=unit, nickname="", color=contributor_color(n))
+            c = Contributor(id=f"c{n}", unit=unit, nickname="", color=contributor_color(n), last_seen=now)
             self.contributors[unit] = c
+            self._by_id[c.id] = c
         if c.role == "worker" and role == "viewer":
             self._release_all(unit)                      # pressed Stop
         c.nickname = clean_nickname(inp.get("nickname"))
         c.role = role
+        reply = {"ok": True, "contributorId": c.id, "color": c.color,
+                 "job": self.job.spec(), "doneTiles": []}
+
+        if unit not in self.viewers and len(self.viewers) >= self.config.viewer_cap:
+            self.overflow.add(unit)
+            reply["overflow"] = True
+            return reply
+        self.overflow.discard(unit)
+        known = unit in self.viewers
         self.viewers.add(unit)
 
+        have = inp.get("have")
+        recent = self._recent_accepts(5.0)               # may still be on their way
+        if (known and inp.get("jobId") == self.job.id and isinstance(have, int)
+                and not isinstance(have, bool) and have + recent >= self._done_count):
+            reply["resumed"] = True
+            return reply
         done = [(tid, ts) for tid, ts in enumerate(self.tiles) if ts.done]
-        self._queue_catchup(unit, done)
-        return {
-            "ok": True,
-            "contributorId": c.id,
-            "color": c.color,
-            "job": self.job.spec(),
-            "doneTiles": [{"tileId": tid, "contributorId": ts.contributor_id} for tid, ts in done],
-        }
+        self.outbox.extend((unit, "TILE_DONE", {"jobId": self.job.id, "tiles": chunk})
+                           for chunk in self._chunks([self._tile_msg(tid, ts) for tid, ts in done]))
+        reply["doneTiles"] = [{"tileId": tid, "contributorId": ts.contributor_id} for tid, ts in done]
+        return reply
 
     def lease(self, unit: str, inp: dict) -> dict:
         self.tick()
@@ -185,6 +241,10 @@ class Coordinator:
         except (TypeError, ValueError):
             capacity = 1
         capacity = max(1, min(self.config.max_capacity, capacity))
+
+        if self._rest_until is not None:                 # showing the finished image
+            left_ms = (self._rest_until - self.clock()) * 1000
+            return {"tasks": [], "wait": int(min(5000, max(250, left_ms)))}
 
         tasks = []
         while len(tasks) < capacity:
@@ -243,16 +303,17 @@ class Coordinator:
         if lease.backup:
             self.counters["backupsWon"] += 1
         self.tile_times.append(now - lease.granted_at)
+        self.turnaround.append(now - lease.granted_at)
+        self._accept_times.append(now)
+        self._pending_tiles.append(self._tile_msg(tile_id, ts))
 
-        tile = {"tileId": tile_id, "contributorId": c.id, "data": data_b64}
-        for viewer in self.viewers:
-            self.outbox.append((viewer, "TILE_DONE", {"jobId": self.job.id, "tiles": [tile]}))
         if self._done_count == len(self.tiles):
-            self.finished.append(self.job)
+            self._finish_job(now)
         return {"accepted": True}
 
     def bye(self, unit: str) -> None:
         self.viewers.discard(unit)
+        self.overflow.discard(unit)
         self._release_all(unit)
         c = self.contributors.get(unit)
         if c:
@@ -268,8 +329,13 @@ class Coordinator:
         return min(cfg.lease_max_s, max(cfg.lease_min_s, cfg.lease_factor * statistics.median(self.tile_times)))
 
     def tick(self) -> None:
-        """Expire every lease whose time is up."""
+        """Expire leases, drop silent viewers, start the next job when due."""
         now = self.clock()
+        if self._rest_until is not None and now >= self._rest_until:
+            self._next_job()
+        if now - self._last_prune >= 1.0:
+            self._last_prune = now
+            self._prune_viewers(now)
         while self._expiry_heap and self._expiry_heap[0][0] <= now:
             _, lease_id = heapq.heappop(self._expiry_heap)
             lease = self.leases.get(lease_id)
@@ -296,13 +362,78 @@ class Coordinator:
     def leased_count(self) -> int:
         return sum(1 for ts in self.tiles if ts.active)
 
-    def result_bytes(self, tile_id: int) -> bytes | None:
-        ts = self.tiles[tile_id]
-        return base64.b64decode(ts.data_b64) if ts.data_b64 else None
+    @property
+    def resting(self) -> bool:
+        return self._rest_until is not None
 
     def drain(self) -> list[tuple[str, str, dict]]:
         out, self.outbox = self.outbox, []
         return out
+
+    def tile_batches(self) -> list[tuple[str, str, dict]]:
+        """One TILE_DONE per viewer for everything accepted since the last call."""
+        if not self._pending_tiles:
+            return []
+        tiles, self._pending_tiles = self._pending_tiles, []
+        chunks = self._chunks(tiles)
+        return [(v, "TILE_DONE", {"jobId": self.job.id, "tiles": chunk})
+                for v in self.viewers for chunk in chunks]
+
+    def record_fanout(self, ms: float) -> None:
+        self.fanout_ms.append(ms)
+
+    def stats(self) -> dict:
+        """Leaderboards, tiles in progress and metrics, for STATS."""
+        now = self.clock()
+        cfg = self.config
+        leased, ids = [], set()
+        for tid, ts in enumerate(self.tiles):
+            if ts.done:
+                ids.add(ts.contributor_id)
+            elif ts.active:
+                first = next(iter(ts.active.values()))
+                cid = self.contributors[first.unit].id
+                leased.append([tid, cid])
+                ids.add(cid)
+
+        def board(key):
+            ranked = sorted((c for c in self.contributors.values() if getattr(c, key) > 0),
+                            key=lambda c: (-getattr(c, key), c.id))[:10]
+            ids.update(c.id for c in ranked)
+            return [[c.id, getattr(c, key)] for c in ranked]
+
+        boards = {"job": board("tiles_job"), "all": board("tiles_total")}
+        p50, p95 = percentile(self.turnaround, 50), percentile(self.turnaround, 95)
+        metrics = {
+            **self.counters,
+            "activeWorkers": sum(1 for c in self.contributors.values()
+                                 if c.role == "worker" and now - c.last_seen <= cfg.worker_active_s),
+            "viewers": len(self.viewers),
+            "overflowViewers": len(self.overflow),
+            "tilesPerSecond": round(self._recent_accepts(10.0) / 10.0, 2),
+            "turnaroundP50Ms": None if p50 is None else round(p50 * 1000),
+            "turnaroundP95Ms": None if p95 is None else round(p95 * 1000),
+            "leaseSeconds": round(self.lease_seconds(), 1),
+            "leased": len(leased),
+            "failedPending": self.failed_pending(),
+            "fanoutMsLast": round(self.fanout_ms[-1], 1) if self.fanout_ms else None,
+            "fanoutMsP95": None if not self.fanout_ms else round(percentile(self.fanout_ms, 95), 1),
+        }
+        return {
+            "jobId": self.job.id,
+            "done": self._done_count,
+            "total": len(self.tiles),
+            "nextJobInMs": None if self._rest_until is None else max(0, round((self._rest_until - now) * 1000)),
+            "leased": leased,
+            "people": {i: [self._by_id[i].nickname, self._by_id[i].color] for i in ids if i in self._by_id},
+            "leaderboard": boards,
+            "metrics": metrics,
+        }
+
+    def stats_messages(self) -> list[tuple[str, str, dict]]:
+        body = self.stats()
+        return ([(v, "STATS", body) for v in self.viewers]
+                + [(v, "STATS", {**body, "overflow": True}) for v in self.overflow])
 
     # ── Internals ────────────────────────────────────────────────────────────
 
@@ -314,8 +445,59 @@ class Coordinator:
         self._failed_queue: deque[int] = deque()
         self._expiry_heap: list[tuple[float, str]] = []
         self._done_count = 0
+        self._job_started = self.clock()
+        self._counters_at_start = dict(self.counters)
         for c in self.contributors.values():
             c.tiles_job = 0
+
+    def _finish_job(self, now: float) -> None:
+        self.counters["jobsFinished"] += 1
+        self.finished.append(FinishedJob(
+            job=self.job,
+            results_b64=[ts.data_b64 for ts in self.tiles],
+            contributor_ids=[ts.contributor_id for ts in self.tiles],
+            seconds=now - self._job_started,
+            counters={k: v - self._counters_at_start.get(k, 0) for k, v in self.counters.items()},
+        ))
+        self._rest_until = now + self.config.rollover_delay_s
+
+    def _next_job(self) -> None:
+        self.outbox.extend(self.tile_batches())          # the old job's last tiles go first
+        self._rest_until = None
+        self._start_job(self.job.seq + 1)
+        spec = self.job.spec()
+        self.outbox.extend((v, "JOB", spec) for v in (*self.viewers, *self.overflow))
+
+    def _prune_viewers(self, now: float) -> None:
+        for unit in [u for u in (*self.viewers, *self.overflow)
+                     if now - self.contributors[u].last_seen > self.config.viewer_ttl_s]:
+            self.viewers.discard(unit)
+            self.overflow.discard(unit)
+            self._release_all(unit)
+            self.contributors[unit].role = "viewer"
+            self.counters["viewersDropped"] += 1
+
+    def _recent_accepts(self, seconds: float) -> int:
+        now = self.clock()
+        while self._accept_times and now - self._accept_times[0] > 10.0:
+            self._accept_times.popleft()
+        return sum(1 for t in self._accept_times if now - t <= seconds)
+
+    def _tile_msg(self, tile_id: int, ts: TileState) -> dict:
+        return {"tileId": tile_id, "contributorId": ts.contributor_id, "data": ts.data_b64}
+
+    def _chunks(self, tiles: list[dict]) -> list[list[dict]]:
+        """Split tile messages so each TILE_DONE stays under batch_bytes."""
+        chunks, batch, size = [], [], 0
+        for t in tiles:
+            if batch and size + len(t["data"]) > self.config.batch_bytes:
+                chunks.append(batch)
+                batch, size = [], 0
+            batch.append(t)
+            size += len(t["data"])
+        if batch:
+            chunks.append(batch)
+        return chunks
 
     def _next_queued(self) -> int | None:
         while self._queue:
@@ -407,15 +589,3 @@ class Coordinator:
     def _reject_stale(self, reason: str) -> dict:
         self.counters["rejectedStale"] += 1
         return {"accepted": False, "reason": reason}
-
-    def _queue_catchup(self, unit: str, done: list[tuple[int, TileState]]) -> None:
-        """Tile data for a new viewer, as TILE_DONE batches under the hub's size cap."""
-        batch, size = [], 0
-        for tid, ts in done:
-            if batch and size + len(ts.data_b64) > self.config.catchup_bytes:
-                self.outbox.append((unit, "TILE_DONE", {"jobId": self.job.id, "tiles": batch}))
-                batch, size = [], 0
-            batch.append({"tileId": tid, "contributorId": ts.contributor_id, "data": ts.data_b64})
-            size += len(ts.data_b64)
-        if batch:
-            self.outbox.append((unit, "TILE_DONE", {"jobId": self.job.id, "tiles": batch}))

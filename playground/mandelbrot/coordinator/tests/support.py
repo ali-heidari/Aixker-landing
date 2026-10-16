@@ -21,8 +21,13 @@ class Clock:
 
 
 def small(clock, **overrides):
-    """A 64×64 job in 16 px tiles: 16 tiles, center ones are 5, 6, 9, 10."""
-    return Coordinator(Config(**{"width": 64, "height": 64, "tile_size": 16, **overrides}), clock=clock)
+    """A 64×64 job in 16 px tiles: 16 tiles, center ones are 5, 6, 9, 10.
+
+    Silent units are never dropped and the next job never starts, unless
+    a test overrides that.
+    """
+    base = {"width": 64, "height": 64, "tile_size": 16, "viewer_ttl_s": 1e9, "rollover_delay_s": 1e9}
+    return Coordinator(Config(**{**base, **overrides}), clock=clock)
 
 
 def good_data(task):

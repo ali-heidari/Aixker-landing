@@ -152,8 +152,8 @@ def test_tile_done_goes_to_viewers_once(coord, clock):
     coord.drain()
     submit(coord, W1, t)
     submit(coord, W2, t2)
-    sent = [m for m in coord.drain() if m[0] == V1 and m[1] == "TILE_DONE"]
-    assert len(sent) == 1
+    sent = [m for m in coord.tile_batches() if m[0] == V1]
+    assert [len(inp["tiles"]) for _, _, inp in sent] == [1]
 
 
 @pytest.mark.parametrize("change,reason", [

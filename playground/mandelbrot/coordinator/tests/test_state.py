@@ -11,7 +11,7 @@ def clock():
 
 @pytest.fixture
 def coord(clock):
-    return small(clock)
+    return small(clock, rollover_delay_s=10.0)
 
 
 # ── HELLO ───────────────────────────────────────────────────────────────────
@@ -80,8 +80,8 @@ def test_whole_job_completes_and_viewers_get_every_tile(coord):
         for t in tasks:
             assert submit(coord, W1, t) == {"accepted": True}
     assert coord.done_count == 16
-    assert coord.finished == [coord.job]
-    sent = [m for m in coord.drain() if m[0] == V1 and m[1] == "TILE_DONE"]
+    assert [f.job for f in coord.finished] == [coord.job]
+    sent = [m for m in coord.tile_batches() if m[0] == V1]
     assert sorted(t["tileId"] for _, _, inp in sent for t in inp["tiles"]) == list(range(16))
     assert coord.contributors[W1].tiles_job == 16
 
@@ -110,7 +110,7 @@ def test_submit_rejects_another_units_lease(coord):
 # ── Catch-up for late viewers ───────────────────────────────────────────────
 
 def test_late_viewer_gets_done_tiles_in_chunks_under_the_cap(clock):
-    coord = Coordinator(Config(width=64, height=64, tile_size=16, catchup_bytes=2000), clock=clock)
+    coord = small(clock, batch_bytes=2000)
     worker(coord)
     for t in coord.handle("LEASE", W1, {"capacity": 4})["tasks"]:
         submit(coord, W1, t)
