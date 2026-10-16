@@ -82,3 +82,17 @@ test('browser worker and coordinator numpy give identical bytes', { skip: !exist
   assert.equal(py.length, js.length)
   for (let i = 0; i < js.length; i++) assert.equal(js[i], py[i], `task ${i}: ${JSON.stringify(tasks[i])}`)
 })
+
+// The PNGs the coordinator saves use the same colours as the page.
+const PY_PALETTE = `
+import json, sys
+from render import palette
+print(json.dumps([palette(m).ravel().tolist() for m in json.loads(sys.stdin.read())]))
+`
+
+test('canvas palette and coordinator PNG palette are the same', { skip: !existsSync(PYTHON) && `no Python at ${PYTHON}` }, async () => {
+  const { buildPalette } = await import('../src/canvas.js')
+  const sizes = [256, 600, 6000]
+  const py = JSON.parse(execFileSync(PYTHON, ['-c', PY_PALETTE], { cwd: COORD_DIR, input: JSON.stringify(sizes) }))
+  sizes.forEach((m, i) => assert.deepEqual([...buildPalette(m)], py[i], `maxIter ${m}`))
+})
