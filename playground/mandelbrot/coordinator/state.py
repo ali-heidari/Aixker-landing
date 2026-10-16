@@ -76,8 +76,8 @@ class Config:
     second_opinion_s: float = 15.0 # a held result waits this long for another worker, then is judged
     max_workers: int = 200         # active workers; others are told to wait
     max_result_bytes: int = 65_536 # base64 length of one SUBMIT's data
-    lease_rate: float = 10.0       # LEASE calls per second per unit …
-    lease_burst: float = 20.0      # … with this much burst
+    lease_rate: float = 30.0       # LEASE calls per second per unit (× 4 tasks each) …
+    lease_burst: float = 60.0      # … with this much burst
     workers_full_wait_ms: int = 10_000
 
 
