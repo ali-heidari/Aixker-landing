@@ -147,6 +147,12 @@ export function createTileCanvas(canvas, overlay, colorOf = () => undefined) {
     get job() { return job },
     get mode() { return mode },
     get doneCount() { return tiles.size },
+    /** Tiles on the canvas credited to this contributor. */
+    countOf(contributorId) {
+      let n = 0
+      for (const e of tiles.values()) if (e.contributorId === contributorId) n++
+      return n
+    },
     has(tileId) { return tiles.has(tileId) },
   }
 }

@@ -57,7 +57,6 @@ let pipe         = null
 let contributor  = null
 let myId         = null      // contributorId the coordinator gave this tab
 let role         = 'viewer'
-let mine         = 0         // tiles computed by this tab in this job
 let helloTimer   = null
 let helloRunning = null      // the HELLO in flight, so callers share it
 let leaving      = false     // pagehide sent BYE
@@ -159,7 +158,6 @@ function onMessage({ operation, input, senderId }) {
 
 function startJob(job) {
   tiles.setJob(job)
-  mine = 0
   $('job-name').textContent = job.name
   $('job-meta').textContent = `${job.width}×${job.height} · ${job.tileCount} tiles · max ${job.maxIter} iterations`
   setNote('resting', '')
@@ -189,6 +187,9 @@ function updateProgress(done = tiles.doneCount) {
   if (!job) return
   $('progress-text').textContent = `${done} / ${job.tileCount} tiles`
   $('progress-bar').style.transform = `scaleX(${done / job.tileCount})`
+  // Count what the coordinator credited to us, as drawn: that includes results
+  // confirmed later by verification and leaves out tiles that were revoked.
+  const mine = myId ? tiles.countOf(myId) : 0
   $('mine').textContent = String(mine)
   $('share').textContent = `${((mine / job.tileCount) * 100).toFixed(1)}%`
 }
@@ -283,11 +284,6 @@ function onEvent(type, detail) {
     if (detail.reason === 'WORKERS_FULL') setNote('full', 'Enough browsers are computing right now. This tab will keep asking.')
     else if (detail.tasks) setNote('full', '')
     return
-  }
-  // A result held for verification is credited to whoever sent it first, so count only clear wins.
-  if (type === 'submitted' && detail.accepted && !detail.verifying && detail.task.jobId === tiles.job?.jobId) {
-    mine++
-    updateProgress()
   }
 }
 
